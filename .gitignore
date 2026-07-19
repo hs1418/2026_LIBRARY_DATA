@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 환경변수 — 시크릿은 절대 커밋 금지
+.env
+
+# 산출물
+backend/poc_output.pdf
+backend/static/generated/
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
