@@ -36,6 +36,6 @@ design: 표지·판권기 템플릿 초안
 
 | 무엇 | 어디 |
 |------|------|
-| 컨셉·일정·역할·핸드오프 | [PLAN.md](PLAN.md) |
-| 시스템 설계 전체 | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| 컨셉·일정·역할·핸드오프 | [docs/PLAN.md](docs/PLAN.md) |
+| 시스템 설계 전체 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 공모전 규칙·심사기준 | [RULES.md](RULES.md) |
