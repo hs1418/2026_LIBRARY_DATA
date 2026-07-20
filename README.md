@@ -16,8 +16,8 @@
 
 | 문서 | 내용 |
 |------|------|
-| [PLAN.md](PLAN.md) | 컨셉·주차별 일정·역할·핸드오프 표 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 시스템 설계 전체 (FR/NFR·API·다이어그램) |
+| [docs/PLAN.md](docs/PLAN.md) | 컨셉·주차별 일정·역할·핸드오프 표 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 시스템 설계 전체 (FR/NFR·API·다이어그램) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 브랜치·PR·커밋 규칙 |
 | [RULES.md](RULES.md) | 공모전 규칙·심사기준 요약 |
 
