@@ -25,7 +25,8 @@ Jinja2/WeasyPrint 기반 A5 그림책 렌더링에 적합하도록 JSON 형태�
 4. 키워드 추출: 도서관 정보나루 빅데이터 추천에 사용할 핵심 단어("keywords")를 스토리에서 2~3개 추출하세요.
 5. JSON 포맷 강제: 절대로 Markdown 코드 블록(```json)이나 인사말을 포함하지 말고, 오직 순수한 JSON 객체만 반환하세요.
 
-3. 프롬프트 템플릿 (User Prompt Template)
+---
+## 3. 프롬프트 템플릿 (User Prompt Template)
 [동화 앞부분 요약]: {intro_summary}
 [아이의 구술 입력]: {child_speech_accumulated}
 
@@ -37,8 +38,9 @@ Jinja2/WeasyPrint 기반 A5 그림책 렌더링에 적합하도록 JSON 형태�
   ],
   "keywords": ["키워드1", "키워드2"]
 }
+---
 
-4.출력 스키마 (Output JSON Schema)
+## 4.출력 스키마 (Output JSON Schema)
 {
   "pages": [
     {
@@ -62,7 +64,7 @@ Jinja2/WeasyPrint 기반 A5 그림책 렌더링에 적합하도록 JSON 형태�
 
 
 ---
-5. 예외 및 가드레일 (Guardrails)
+## 5. 예외 및 가드레일 (Guardrails)
 ### 2단계: 깃허브 웹에서 파일 생성하기
 
 1. 본인의 깃허브 저장소(`2026_LIBRARY_DATA`) 메인 화면으로 갑니다.
