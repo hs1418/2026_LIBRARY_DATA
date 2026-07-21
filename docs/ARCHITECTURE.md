@@ -43,7 +43,7 @@
 데이터량:   Story 1~2행(정적) + Session 하루 수십 건 → DB 총량 < 5MB
 호출 빈도:  세션당 외부 API ~3회 (generate LLM 1, 정보나루 1, 추천 LLM 1)
             하루 피크 20세션 → ~60회/일 → 0.001 req/s
-AI 비용:    60 req × ~$0.005 = ~$0.3/day (Gemini 기준)
+AI 비용:    Groq 무료 티어 범위 (하루 60회 수준이라 과금 고려 대상 아님)
 ```
 
 **이 숫자가 이 문서 전체의 쳐내기 근거다.** 0.001 req/s 규모에서 캐싱·큐·로드밸런싱·회로차단기는 전부 과설계이며, 6장에서 각각 임계점과 함께 접는다.
@@ -122,7 +122,8 @@ PostgreSQL + SQLAlchemy/Alembic. 데이터가 5MB 미만이라 SQLite로도 충�
 | GET | `/api/stories/{id}` | 원작 앞부분·스캔 이미지·판권기 | 정적 |
 | POST | `/api/stories/{id}/generate` | 구술 → 페이지 분할·한영·키워드 → Session 저장 | **런타임 LLM** |
 | GET | `/api/sessions/{id}` | 생성 결과 (미리보기·영수증 데이터) | 읽기 |
-| GET | `/api/sessions/{id}/pdf` | A5 완전본 PDF 생성·다운로드 | 렌더링 |
+| POST | `/api/sessions/{id}/pdf` | A5 완전본 PDF 생성·다운로드 (바디로 작가 이름) | 렌더링 |
+| GET | `/api/sessions/demo/pdf` | 오프라인 폴백 샘플 (ADR-0004 3계층) | 정적 |
 | GET | `/api/sessions/{id}/recommendations` | 키워드 → 정보나루 → LLM 추천 | **런타임 외부** |
 
 **런타임 실패 가능 지점은 굵게 표시한 2개뿐이고, 둘 다 폴백이 있다** (ADR-0004). 나머지는 정적 읽기라 사실상 죽지 않는다.
@@ -134,11 +135,15 @@ Request:  { "lang": "ko", "child_speech": "두꺼비가 독을 막아줘서..." 
 Response: { "session_id": 42, "pages": [...], "keywords": [...] }
 ```
 
-`GET /pdf` 쿼리: `?author_name=김토스` (선택) — 렌더링에만 쓰고 저장하지 않는다.
+`POST /pdf` 바디: `{"author_name": "김토스"}` (선택) — 렌더링에만 쓰고 저장하지 않는다. URL·로그에 남기지 않으려고 쿼리스트링이 아닌 바디로 받는다 (ADR-0008).
 
 ### 3-3. LLM 출력 XSS 방어
 
-아이 구술과 LLM 생성문이 그대로 화면·PDF에 들어가므로, 저장 전 `html.escape()` 처리하고 프론트는 `textContent`만 사용한다 (`innerHTML` 금지). PDF는 WeasyPrint가 HTML을 렌더링하므로 **템플릿에 값을 꽂을 때 이스케이프가 빠지면 그대로 실행되는 경로**가 된다 — Jinja2 자동 이스케이프를 켠 상태로 유지하는 것이 이 프로젝트의 유일한 XSS 차단선이다.
+아이 구술과 LLM 생성문이 그대로 화면·PDF에 들어간다. **이스케이프는 렌더 계층에서만** 한다 — DB·API 응답은 raw 텍스트를 다루고, Jinja2 자동 이스케이프(PDF)와 `textContent`(DOM)가 각자의 출력 맥락에서 한 번씩 처리한다. `innerHTML`은 금지다.
+
+저장 시점에 `html.escape()`를 걸면 안 된다. 이스케이프는 데이터의 성질이 아니라 특정 출력 맥락의 요구라, 저장 계층이 그 책임을 가지면 출력 맥락이 둘 이상일 때 반드시 어긋난다. 실제로 이 프로젝트는 저장·렌더 양쪽에서 이스케이프가 걸려 A5 인쇄물에 `&quot;`가 문자로 찍히는 사고를 겪었다 (ADR-0008).
+
+PDF는 Playwright(Chromium)가 HTML을 렌더링하므로, **템플릿에 값을 꽂을 때 이스케이프가 빠지면 그대로 실행되는 경로**가 된다 — Jinja2 자동 이스케이프를 켠 상태로 유지하는 것이 이 프로젝트의 XSS 차단선이다.
 
 ### 3-4. 생성 플로우 (골든 패스)
 
@@ -150,17 +155,17 @@ Response: { "session_id": 42, "pages": [...], "keywords": [...] }
        │ POST /generate {lang, child_speech}
        ├──────────────────────────────►│
        │                               │ 프롬프트 조립
-       │                               ├──────────────────► Gemini
+       │                               ├──────────────────► Groq/Llama
        │                               │   타임아웃 15s        │
        │                               │   실패 시 1회 재시도   │
        │                               │◄──────────────────┘
        │                               │ pages[] + keywords[] 파싱
-       │                               │ html.escape() → Session 저장
+       │                               │ Session 저장 (raw, 이스케이프는 렌더 계층)
        │◄──────────────────────────────┤
        │ {session_id, pages, keywords}
        │
-       │ GET /sessions/{id}/pdf
-       ├──────────────────────────────►│ Jinja2 + WeasyPrint → A5 PDF
+       │ POST /sessions/{id}/pdf {author_name}
+       ├──────────────────────────────►│ Jinja2 + Playwright → A5 PDF
        │◄──────────────────────────────┤ (→ 프린터)
        │
        │ GET /sessions/{id}/recommendations
@@ -169,9 +174,8 @@ Response: { "session_id": 42, "pages": [...], "keywords": [...] }
        │                               │   타임아웃 8s, 재시도 0
        │                               │   실패 → 즉시 폴백    │
        │                               │◄──────────────────┘
-       │                               ├──────────────────► Gemini (추천 문구)
        │◄──────────────────────────────┤
-       │ {books[], call_numbers[]}
+       │ {books:[{title,author,publisher,call_number}], fallback, comment:null}
 ```
 
 ### 3-5. 스코프에서 제외한 목업 기능
@@ -203,7 +207,7 @@ Response: { "session_id": 42, "pages": [...], "keywords": [...] }
   │   └──────┬───────┘   └───────┬──────┘                │
   │          │                   │                        │
   │          │           ┌───────▼────────┐               │
-  │          │           │  LLM Client    │───────────────┼──► Gemini API
+  │          │           │  LLM Client    │───────────────┼──► Groq (Llama 3.1)
   │          │           │  15s + 1 retry │               │
   │          │           └───────┬────────┘               │
   │          │                   │                        │
@@ -217,7 +221,7 @@ Response: { "session_id": 42, "pages": [...], "keywords": [...] }
   │          │           ┌────────────────┐               │
   │          │           │  PDF Renderer  │               │
   │          │           │  Jinja2 +      │               │
-  │          │           │  WeasyPrint    │               │
+  │          │           │  Playwright    │               │
   │          │           └───────┬────────┘               │
   │          │                   │                        │
   │          └───────┬───────────┘                        │
@@ -265,7 +269,7 @@ jobs:
     # deploy는 Render가 git push 감지해 자동 수행 — 별도 잡 불필요
 ```
 
-**시크릿 관리**: `GEMINI_API_KEY`, `DATA4LIBRARY_KEY`, `NL_API_KEY`, `DATABASE_URL`은 전부 환경변수. `.env.example`이 계약이며 실제 `.env`는 gitignore. Render에는 대시보드 환경변수로 주입한다.
+**시크릿 관리**: `GROQ_API_KEY`, `GROQ_MODEL`, `DATA4LIBRARY_KEY`, `DATABASE_URL`은 전부 환경변수 (`NL_API_KEY`는 선언돼 있으나 현재 코드에서 사용하지 않는다). `.env.example`이 계약이며 실제 `.env`는 gitignore. Render에는 대시보드 환경변수로 주입한다.
 
 배포 잡을 안 만드는 이유: Render가 GitHub 연동으로 자동 배포하므로 SSH 배포 스크립트가 불필요하다. AI-DO에서 쓰던 EC2+SSH 파이프라인을 그대로 옮기면 이 프로젝트에선 순수한 유지보수 부담만 늘어난다.
 
@@ -303,7 +307,7 @@ jobs:
 
 | # | 약점 | 영향 | 대안 | 안 쓰는 이유 |
 |---|------|------|------|-------------|
-| 1 | **Gemini 단일 의존** | LLM 장애 = 골든 패스 중단 | 멀티 프로바이더 폴백 | 4주 스코프 초과. 3계층 폴백으로 완화 |
+| 1 | **Groq 단일 의존** | LLM 장애 = 골든 패스 중단 | 멀티 프로바이더 폴백 | 4주 스코프 초과. 3계층 폴백으로 완화 |
 | 2 | **STT가 Chrome 전용** | 다른 브라우저에서 마이크 무용 | 서버 STT | 시연을 Chrome 1대로 하므로 제약이 무의미. 텍스트 수동 입력이 항상 열려 있음 |
 | 3 | **타임아웃 15s/8s가 실측 아닌 추정** | 실제 응답이 더 느리면 잦은 폴백 | 실측 후 조정 | W2~W3에 실측 예정 — 지금은 값을 정하는 것 자체가 목적 |
 | 4 | **Render 콜드스타트** | 첫 요청 수십 초 지연 | 유료 티어·상시 핑 | 제출·녹화 시점에만 필요하므로 사전 접속 1회로 해소 |
@@ -345,13 +349,12 @@ library/
 │   │   │   ├── stories.py
 │   │   │   └── sessions.py
 │   │   ├── services/
-│   │   │   ├── llm.py          # Gemini 클라이언트 (15s + 1 retry)
+│   │   │   ├── llm.py          # Groq/Llama 3.1 (15s + 1 retry)
 │   │   │   ├── data4library.py # 정보나루 (8s + 폴백)
-│   │   │   └── pdf.py          # Jinja2 + WeasyPrint
+│   │   │   └── pdf.py          # Jinja2 + Playwright(Chromium)
 │   │   └── seed.py             # Story 1~2편 시딩
 │   ├── templates/
 │   │   ├── book.html           # A5 제본용 (디자인 제공)
-│   │   └── receipt.html        # 영수증
 │   ├── static/
 │   │   └── fallback_sample.pdf # 오프라인 최종 방어선
 │   └── alembic/
