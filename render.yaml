@@ -23,8 +23,10 @@ services:
     healthCheckPath: /health
     envVars:
       # 임시 SQLite — 재기동 시 초기화되고 부트스트랩이 다시 시드한다.
+      # /tmp 를 쓰는 이유: 컨테이너 작업 디렉터리에 쓰기가 막혀
+      # 'unable to open database file' 로 죽었다. 슬래시 4개가 절대경로다.
       - key: DATABASE_URL
-        value: sqlite+aiosqlite:///./deploy.db
+        value: sqlite+aiosqlite:////tmp/deploy.db
       # 시크릿은 대시보드에서 직접 입력한다(sync:false → 커밋되지 않음).
       - key: GROQ_API_KEY
         sync: false
