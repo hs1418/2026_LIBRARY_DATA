@@ -43,7 +43,7 @@ def _story() -> Story:
         title="콩쥐팥쥐",
         emoji="🐸",
         keyword="권선징악",
-        intro_summary="",
+        intro_summary="콩쥐는 밑 빠진 독에 물을 채워야 했어요.",
         intro_image="",
         bibliography={"title": "콩쥐팥쥐전", "year": "1926", "publisher": "미상"},
         fixed_keywords=[],
@@ -51,9 +51,9 @@ def _story() -> Story:
     )
 
 
-def _session() -> StorySession:
+def _session(lang: str = "ko") -> StorySession:
     return StorySession(
-        story_id=1, lang="ko", child_speech="...", pages=_PAGES, keywords=["권선징악"]
+        story_id=1, lang=lang, child_speech="...", pages=_PAGES, keywords=["권선징악"]
     )
 
 
@@ -62,9 +62,13 @@ def _compact(text: str) -> str:
     return "".join(text.split())
 
 
-def test_html_source_escapes_once_only():
-    """① HTML 소스 — 값은 딱 한 번 escape 된다(XSS 차단 유지 + 이중 이스케이프 없음)."""
-    html_str = pdf_service.render_book_html(_story(), _session(), author_name="김토스")
+@pytest.mark.parametrize("lang", ["ko", "en"])
+def test_html_source_escapes_once_only(lang: str):
+    """① HTML 소스 — 값은 딱 한 번 escape 된다(XSS 차단 유지 + 이중 이스케이프 없음).
+
+    본문은 lang 하나만 렌더되므로(한/영 병기 폐기) 두 언어 모두 돌려서 확인한다.
+    """
+    html_str = pdf_service.render_book_html(_story(), _session(lang), author_name="김토스")
 
     # XSS 차단선: raw <script> 가 소스에 실행 가능한 형태로 들어가면 안 된다.
     assert "<script>alert(1)</script>" not in html_str
@@ -75,15 +79,20 @@ def test_html_source_escapes_once_only():
     assert "&amp;amp;" not in html_str
     assert "&amp;quot;" not in html_str
 
-    # 앰퍼샌드·따옴표는 정확히 한 겹만 escape 된 상태.
-    assert "Kongjwi &amp; Toad" in html_str
-    assert "&amp;amp; Toad" not in html_str
+    # 앰퍼샌드는 정확히 한 겹만 escape 된 상태.
+    amp_text = "Kongjwi &amp; Toad" if lang == "en" else "콩쥐 &amp; 두꺼비"
+    assert amp_text in html_str
+    assert "&amp;amp;" not in html_str
 
 
 @pytest.mark.pdf
 async def test_pdf_text_has_no_entity_literals():
-    """② 실제 Chromium 렌더 — 추출 텍스트에 엔티티 리터럴이 남으면 실패."""
-    data = await pdf_service.render_pdf(_story(), _session(), author_name="김토스")
+    """② 실제 Chromium 렌더 — 추출 텍스트에 엔티티 리터럴이 남으면 실패.
+
+    lang='en' 으로 렌더한다 — 어서션 대상 문장이 ASCII 라 폰트가 없는 CI 에서도
+    추출이 안정적이다(한글 경로는 test_pdf_endpoint_returns_pdf_bytes 가 커버).
+    """
+    data = await pdf_service.render_pdf(_story(), _session("en"), author_name="김토스")
     assert data.startswith(b"%PDF")
 
     reader = PdfReader(io.BytesIO(data))
