@@ -51,7 +51,7 @@ async def generate(
     session = Session(
         story_id=story.id,
         lang=payload.lang,
-        child_speech=payload.child_speech,  # 이미 저장 전 escape 는 pages 에만 필요; 원문 보관
+        child_speech=payload.child_speech,  # 구술 원문 그대로 보관(escape 는 렌더 계층 책임)
         pages=pages,
         keywords=keywords,
     )

@@ -4,12 +4,13 @@
              — 프롬프트(system_prompt·user_prompt) 수정은 AI담당자 소관.
 
 정책(ADR-0004): 전체 호출 타임아웃 15초 + 실패 시 1회 재시도(우리 배관 책임 — 원본엔 없음).
-보안(ARCHITECTURE §3-3): html.escape 는 _normalize 한 곳에서만 적용한다.
-             AI팀 원본은 모듈 안에서 escape 하지만, 우리는 _normalize 로 이스케이프
-             지점을 단일화했다(모듈 내 중복 escape 제거 → 이중 이스케이프 방지).
+보안(ARCHITECTURE §3-3): 이 모듈은 escape 하지 않는다. 저장은 raw 텍스트,
+             이스케이프는 렌더 계층(PDF=Jinja2 autoescape, DOM=textContent) 책임이다.
+             예전에는 _normalize 에서 html.escape 를 걸었는데, 렌더 계층이 한 번 더
+             escape 하면서 인쇄물에 `&quot;`·`&amp;` 리터럴이 찍히는 이중 이스케이프가
+             실제로 발생했다.
 """
 import asyncio
-import html
 import json
 import re
 
@@ -77,10 +78,16 @@ def _extract_json(text: str) -> dict:
 
 
 def _normalize(data: dict) -> tuple[list[dict], list[str]]:
-    """파싱 결과를 검증하고 모든 텍스트에 html.escape() 적용.
+    """파싱 결과를 검증하고 raw 텍스트 그대로 반환한다.
 
-    이스케이프 단일 지점: LLM 텍스트는 여기서만 escape 한다. Groq 응답을 받는
-    _call_groq/_build_messages 어디에서도 escape 하지 않는다(이중 이스케이프 방지).
+    여기서 html.escape 를 하지 않는 이유(중요):
+      - 이스케이프는 '렌더 계층 한 곳'의 책임이다. PDF 는 Jinja2 autoescape
+        (pdf.py `select_autoescape`), 화면은 `textContent` 가 이미 그 역할을 한다.
+      - 저장 시점에 또 escape 하면 렌더 계층에서 한 번 더 걸려 이중 이스케이프가 된다.
+        실제로 A5 인쇄물에 `&quot;`·`&amp;` 가 문자 그대로 찍히는 버그가 났다
+        (ADR-0007 은 'escape 단일화'를 선언했지만 구현은 두 겹이었다).
+      - 따라서 DB·API JSON 에는 항상 raw 텍스트가 담긴다. 이 값을 새로 HTML 로
+        넣는 경로를 추가한다면 그 경로에서 escape 하라(innerHTML 사용 금지).
     """
     raw_pages = data.get("pages")
     raw_keywords = data.get("keywords")
@@ -96,18 +103,18 @@ def _normalize(data: dict) -> tuple[list[dict], list[str]]:
         pages.append(
             {
                 "no": int(page.get("no", idx)),
-                "ko": html.escape(str(page.get("ko", ""))),
-                "en": html.escape(str(page.get("en", ""))),
+                "ko": str(page.get("ko", "")),
+                "en": str(page.get("en", "")),
             }
         )
-    keywords = [html.escape(str(k)) for k in raw_keywords]
+    keywords = [str(k) for k in raw_keywords]
     return pages, keywords
 
 
 async def _call_groq(messages: list[dict]) -> str:
     """Groq Llama 3.1 호출 — 네트워크 seam(테스트는 이 함수를 monkeypatch 한다).
 
-    반환: 모델이 낸 순수 JSON 문자열(escape 하지 않음 — 단일 escape 는 _normalize).
+    반환: 모델이 낸 순수 JSON 문자열(escape 하지 않음 — escape 는 렌더 계층 책임).
     """
     client = AsyncGroq(api_key=settings.groq_api_key)
     response = await client.chat.completions.create(

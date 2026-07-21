@@ -12,3 +12,5 @@ jinja2
 pytest
 pytest-asyncio
 ruff
+# 테스트 전용: PDF 추출 텍스트로 이중 이스케이프 회귀 검증(A-1)
+pypdf

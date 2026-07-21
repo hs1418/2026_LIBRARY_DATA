@@ -6,6 +6,20 @@
 
 const API_BASE = '/api';
 
+// 일반 조회 API 타임아웃. 정보나루는 백엔드에서 8초 단일 시도(재시도 0, ADR-0004)라
+// 10초면 충분하다.
+const API_TIMEOUT_MS = 10000;
+
+// generate 전용 타임아웃. 백엔드 LLM 호출은 15초 × 최대 2회(1차 + 재시도 1회) =
+// 최대 30초까지 걸릴 수 있다(llm.py LLM_TIMEOUT/LLM_MAX_ATTEMPTS, ADR-0004).
+// 이 값이 30초보다 짧으면 1차 호출이 느릴 때 프론트가 먼저 abort 해서, 재시도가
+// 성공해도 사용자는 항상 에러 화면을 보게 된다 — 1계층 폴백이 무력화된다.
+// 30초 + 네트워크·렌더 여유 5초 = 35초.
+const GENERATE_TIMEOUT_MS = 35000;
+
+// PDF 렌더는 Chromium 기동 포함이라 별도 여유값.
+const PDF_TIMEOUT_MS = 30000;
+
 function fetchJson(url, options, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -23,10 +37,10 @@ function fetchJson(url, options, timeoutMs) {
 
 const api = {
     getStories() {
-        return fetchJson(API_BASE + '/stories', {}, 10000);
+        return fetchJson(API_BASE + '/stories', {}, API_TIMEOUT_MS);
     },
     getStory(id) {
-        return fetchJson(API_BASE + '/stories/' + encodeURIComponent(id), {}, 10000);
+        return fetchJson(API_BASE + '/stories/' + encodeURIComponent(id), {}, API_TIMEOUT_MS);
     },
     generateStory(id, payload) {
         return fetchJson(
@@ -36,17 +50,17 @@ const api = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             },
-            20000
+            GENERATE_TIMEOUT_MS
         );
     },
     getRecommendations(sessionId) {
-        return fetchJson(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/recommendations', {}, 10000);
+        return fetchJson(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/recommendations', {}, API_TIMEOUT_MS);
     },
     // 아이 이름은 URL(쿼리스트링)이 아니라 POST 바디로만 보낸다 — 서버 액세스 로그·
     // 브라우저 히스토리에 이름이 남지 않게 하기 위함(NFR-6 / ADR-0005).
     fetchPdfBlob(sessionId, authorName) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 30000);
+        const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT_MS);
 
         return fetch(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/pdf', {
             method: 'POST',

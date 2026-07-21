@@ -5,9 +5,11 @@
 
 정책(ADR-0004): 타임아웃 8초, 재시도 0회. 실패 시 즉시 폴백 + 응답에 fallback:true.
 폴백 진실 소스는 시드(Story.recommend_books) 한 곳 — 시드가 비었을 때만 모듈 상수(FALLBACK_BOOKS).
-보안(ARCHITECTURE §3-3): html.escape 는 이 서비스 출력에서 한 번만 적용.
+보안(ARCHITECTURE §3-3): 이 서비스는 escape 하지 않는다 — llm.py 와 동일 원칙으로
+             raw 저장/응답, escape 는 렌더 계층(textContent / Jinja2 autoescape) 한 곳.
+             도서 제목에 `&`(예: "개구리 & 두꺼비")가 흔해 저장 시점 escape 는
+             영수증 화면에 `&amp;` 리터럴을 그대로 노출시킨다.
 """
-import html
 import logging
 
 import httpx
@@ -58,12 +60,12 @@ FALLBACK_BOOKS = [
 
 
 def _normalize_book(item: dict) -> dict:
-    """폴백 도서 dict(시드 or 모듈 상수)를 응답 스키마로 정규화 + html.escape."""
+    """폴백 도서 dict(시드 or 모듈 상수)를 응답 스키마로 정규화(raw — escape 안 함)."""
     return {
-        "title": html.escape(str(item.get("title", ""))),
-        "author": html.escape(str(item.get("author", ""))),
-        "publisher": html.escape(str(item.get("publisher", ""))),
-        "call_number": html.escape(str(item.get("call_number", ""))),
+        "title": str(item.get("title", "")),
+        "author": str(item.get("author", "")),
+        "publisher": str(item.get("publisher", "")),
+        "call_number": str(item.get("call_number", "")),
     }
 
 
@@ -77,8 +79,9 @@ def _fallback_books(story: Story) -> list[dict]:
 async def _srch_books(query: str) -> list[dict]:
     """정보나루 srchBooks 호출 — 네트워크 seam(테스트는 이 함수를 monkeypatch 한다).
 
-    반환: [{title, author, publisher, call_number}] (이미 html.escape 적용). 실패 시 예외 전파.
-    필드 매핑: 정보나루 class_no → 프론트 계약대로 call_number.
+    반환: [{title, author, publisher, call_number}] (raw 텍스트 — escape 는 렌더 계층).
+    실패 시 예외 전파.
+    필드 매핑: 정보나루 bookname → title, authors → author, class_no → call_number.
     """
     async with httpx.AsyncClient(timeout=DATA4LIBRARY_TIMEOUT) as client:
         resp = await client.get(
@@ -102,10 +105,10 @@ async def _srch_books(query: str) -> list[dict]:
             continue
         books.append(
             {
-                "title": html.escape(str(title)),
-                "author": html.escape(str(book.get("authors", ""))),
-                "publisher": html.escape(str(book.get("publisher", ""))),
-                "call_number": html.escape(str(book.get("class_no", ""))),
+                "title": str(title),
+                "author": str(book.get("authors", "")),
+                "publisher": str(book.get("publisher", "")),
+                "call_number": str(book.get("class_no", "")),
             }
         )
     return books

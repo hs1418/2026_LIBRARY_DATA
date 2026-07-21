@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    name: lint · test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ADR-0006 리스크 대응: chromium 누락이면 PDF 생성이 조용히 죽는다.
+      # CI 에서 실제로 렌더해 배포 전에 잡는다.
+      - name: Chromium 설치 (PDF 렌더)
+        run: python -m playwright install --with-deps chromium
+
+      - name: ruff
+        run: ruff check app tests
+
+      # 테스트는 전부 mock 경유라 API 키 없이 통과한다(인메모리 SQLite 사용).
+      - name: pytest
+        run: pytest tests -v
+
+  security:
+    name: 시크릿 · 의존성 스캔
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks 가 커밋 히스토리 전체를 훑으려면 얕은 클론으로는 부족하다.
+          fetch-depth: 0
+
+      # gitleaks-action(v2) 대신 바이너리를 직접 돌린다.
+      # 액션은 PR 커밋 목록을 GitHub API 로 조회해 pull-requests 권한이 필요하고
+      # (권한 없으면 403 으로 죽는다), 조직 계정에서는 라이선스 키까지 요구한다.
+      # 우리가 필요한 건 "히스토리에 시크릿이 있나" 하나뿐이라 API 의존을 없앤다.
+      - name: gitleaks (시크릿 스캔)
+        run: |
+          VERSION=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --redact --verbose --no-banner
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: pip-audit (의존성 취약점)
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r backend/requirements.txt --strict
