@@ -38,7 +38,10 @@ async def generate(
         raise HTTPException(status_code=404, detail="story not found")
 
     try:
-        pages, keywords = await llm.generate_pages(payload.lang, payload.child_speech)
+        # intro_summary(원작 앞부분)를 프롬프트에 함께 넣는다 — AI팀 user_prompt 설계.
+        pages, keywords = await llm.generate_pages(
+            payload.lang, payload.child_speech, story.intro_summary
+        )
     except llm.LLMError:
         # 재시도 후에도 실패 — 세션 종료가 아니라 재입력 유도(ADR-0004 1계층).
         raise HTTPException(

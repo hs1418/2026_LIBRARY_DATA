@@ -13,3 +13,7 @@ line-length = 100
 select = ["E", "F", "I", "W", "UP", "B"]
 # B008: FastAPI 의 Depends()/Query() 기본값 패턴은 관용적이므로 허용.
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# llm.py 프롬프트는 AI팀 원본(v1.2)을 한 글자도 바꾸지 않고 이식 — 한글 장문이라 E501 불가피.
+"app/services/llm.py" = ["E501"]

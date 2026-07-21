@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_session
 from app.models import Session, Story
 from app.schemas import RecommendationsResponse, SessionResult
-from app.services import data4library, llm, pdf
+from app.services import data4library, pdf
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -63,8 +63,7 @@ async def get_recommendations(
 
     keywords = session.keywords or story.fixed_keywords or []
     books, fallback = await data4library.search_recommendations(story, keywords)
-    comment = await llm.make_recommendation_blurb(keywords, [b["title"] for b in books])
 
-    return RecommendationsResponse(
-        books=books, fallback=fallback, comment=comment or None
-    )
+    # comment(추천 문구)는 현 파이프라인에 생성 주체가 없어 null 고정(프론트 계약).
+    # AI팀 산출물(llm/data4library 어느 쪽도)에 문구 생성기가 없다.
+    return RecommendationsResponse(books=books, fallback=fallback, comment=None)

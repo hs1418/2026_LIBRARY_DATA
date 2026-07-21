@@ -64,6 +64,8 @@ class SessionResult(BaseModel):
 # --- recommendations ---
 class RecommendBook(BaseModel):
     title: str
+    author: str = ""
+    publisher: str = ""
     call_number: str = ""
 
 

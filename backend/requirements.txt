@@ -6,6 +6,7 @@ aiosqlite
 alembic
 pydantic-settings
 playwright
+groq
 httpx
 jinja2
 pytest

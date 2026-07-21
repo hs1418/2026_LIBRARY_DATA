@@ -71,33 +71,25 @@ async def client(monkeypatch):
     app.dependency_overrides[get_session] = override_get_session
 
     # --- 외부 호출 mock ---
-    async def fake_call_gemini(payload: dict, timeout: float) -> dict:
-        is_generate = (
-            payload.get("generationConfig", {}).get("response_mime_type")
-            == "application/json"
+    async def fake_call_groq(messages: list[dict]) -> str:
+        # Groq seam: 순수 JSON 문자열을 반환(escape 전) — _normalize 가 escape 한다.
+        return json.dumps(
+            {
+                "pages": [
+                    {"no": 1, "ko": INJECTED_SPEECH, "en": "The toad blocked it."},
+                    {"no": 2, "ko": "콩쥐는 물을 채웠어요.", "en": "Filled with water."},
+                    {"no": 3, "ko": "잔치에 갔어요.", "en": "Went to the party."},
+                ],
+                "keywords": ["권선징악", "두꺼비의보은", "창의적해결"],
+            },
+            ensure_ascii=False,
         )
-        if is_generate:
-            # 아이 구술을 그대로 페이지에 반영(escape 전) — _normalize 가 escape 한다.
-            text = json.dumps(
-                {
-                    "pages": [
-                        {"no": 1, "ko": INJECTED_SPEECH, "en": "The toad blocked it."},
-                        {"no": 2, "ko": "콩쥐는 물을 채웠어요.", "en": "Filled with water."},
-                        {"no": 3, "ko": "잔치에 갔어요.", "en": "Went to the party."},
-                    ],
-                    "keywords": ["권선징악", "두꺼비의보은", "창의적해결"],
-                },
-                ensure_ascii=False,
-            )
-        else:
-            text = "이어서 읽으면 좋은 이야기예요"
-        return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
 
     async def fake_srch_books(query: str):
         # 정보나루 장애 시뮬레이션 → 폴백 경로 유도
         raise httpx.ConnectError("simulated data4library outage")
 
-    monkeypatch.setattr(llm, "_call_gemini", fake_call_gemini)
+    monkeypatch.setattr(llm, "_call_groq", fake_call_groq)
     monkeypatch.setattr(data4library, "_srch_books", fake_srch_books)
 
     transport = ASGITransport(app=app)
@@ -130,6 +122,9 @@ async def test_golden_path(client: AsyncClient):
     page1_ko = body["pages"][0]["ko"]
     assert "<script>" not in page1_ko  # raw 태그가 남으면 안 됨
     assert "&lt;script&gt;" in page1_ko  # html.escape 적용 확인
+    # 이스케이프 단일 지점 검증 — 이중 이스케이프(&amp;lt; / &amp;amp;)가 없어야 함.
+    assert "&amp;lt;" not in page1_ko
+    assert "&amp;amp;" not in page1_ko
 
     # ③ 세션 결과 조회
     resp = await client.get(f"/api/sessions/{session_id}")
@@ -145,9 +140,12 @@ async def test_golden_path(client: AsyncClient):
     assert recs["fallback"] is True
     assert len(recs["books"]) == 2
     assert recs["books"][0]["title"] == "은혜 갚은 두꺼비"
+    # 필드명 계약: call_number 사용, AI팀 원본 call_no 는 응답에 없어야 함.
     assert recs["books"][0]["call_number"] == "813.8-ㄷ"
-    # 프론트 계약: comment 키 존재(문구 생성 성공 시 문자열, 실패 시 null)
+    assert "call_no" not in recs["books"][0]
+    # comment 는 생성 주체가 없어 null 고정(프론트 계약).
     assert "comment" in recs
+    assert recs["comment"] is None
 
 
 async def test_story_not_found(client: AsyncClient):

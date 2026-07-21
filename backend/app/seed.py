@@ -1,6 +1,7 @@
 """콩쥐팥쥐 1편 시딩 스크립트 — python -m app.seed.
 
-intro_summary / bibliography / recommend_books 는 W1 검증 후 실제 데이터로 교체할 placeholder.
+서지/추천/키워드/앞부분 요약은 AI팀 시드(data/kongjwi_seed.txt) 실데이터로 갱신.
+recommend_books 5권이 서비스 폴백의 진실 소스 — data4library.FALLBACK_BOOKS 와 동일(시드가 원본).
 """
 import asyncio
 
@@ -14,24 +15,51 @@ KONGJWI = {
     "emoji": "🐸",
     "keyword": "권선징악",
     "intro_summary": (
-        "새어머니와 팥쥐는 콩쥐에게 밑 빠진 독에 물을 채우라는 어려운 일을 시켜요. "
-        "콩쥐가 울고 있는데, 커다란 두꺼비가 나타나는데..."
+        "마음씨 착한 콩쥐는 새어머니와 팥쥐의 구박을 받으며 단독에 물 채우기, "
+        "자갈밭 매기 등 힘든 일을 해냅니다. 그때 두꺼비와 소, 새들이 나타나 "
+        "콩쥐를 도와주기 시작하는데..."
     ),
     "intro_image": "/static/scans/kongjwi_intro.jpg",
     "bibliography": {
         "title": "콩쥐팥쥐전",
-        "year": "1926",
-        "publisher": "미상(딱지본)",
-        "source": "국립중앙도서관 소장",
-        "note": "W1 검증 후 실제 서지로 교체",
+        "isbn": "9788939502148",
+        "publisher": "영창서관 (원작 출판) / 보림 (현대 재해석)",
+        "year": "1920s (딱지본 원전) / 2018 (표준 서지)",
+        "reg_no": "K2026-LIB-10492",
+        "source": "국립중앙도서관 국가서지",
     },
-    "fixed_keywords": ["권선징악", "보은", "지혜"],
+    "fixed_keywords": ["권선징악", "효심", "지혜"],
     "recommend_books": [
-        {"title": "팥죽 할머니와 호랑이", "call_number": "813.8-ㅍ"},
-        {"title": "우렁각시", "call_number": "813.8-ㅇ"},
-        {"title": "해님 달님", "call_number": "813.8-ㅎ"},
-        {"title": "은혜 갚은 두꺼비", "call_number": "813.8-ㄷ"},
-        {"title": "선녀와 나무꾼", "call_number": "813.8-ㅅ"},
+        {
+            "title": "콩쥐팥쥐",
+            "author": "이성실 글 ; 박완서 그림",
+            "publisher": "보림",
+            "call_number": "813.8-보64ㅋ-2",
+        },
+        {
+            "title": "화요일의 두꺼비",
+            "author": "러셀 에릭슨 지음 ; 햇살과나무꾼 옮김",
+            "publisher": "사계절",
+            "call_number": "843-에296ㅎ",
+        },
+        {
+            "title": "개구리와 두꺼비는 친구",
+            "author": "아놀드 로벨 글·그림 ; 엄혜숙 옮김",
+            "publisher": "비룡소",
+            "call_number": "808.8-비46ㅂ-1",
+        },
+        {
+            "title": "신데렐라 (세계 전래동화)",
+            "author": "샤를 페로 원작 ; 이경혜 글",
+            "publisher": "시공주니어",
+            "call_number": "808.8-시16ㅅ-12",
+        },
+        {
+            "title": "혹부리 영감과 은혜 갚은 두꺼비",
+            "author": "서정오 글 ; 한병호 그림",
+            "publisher": "보리",
+            "call_number": "813.8-보94ㅎ",
+        },
     ],
 }
 
