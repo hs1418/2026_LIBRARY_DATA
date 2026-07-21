@@ -22,3 +22,6 @@ Thumbs.db
 # 로컬 스모크 DB
 *.db
 backend/poc_page*.png
+
+# 배포 부트스트랩 DB
+backend/deploy*.db

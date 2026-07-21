@@ -1,0 +1,37 @@
+# Render 배포 설정 (ADR-0003)
+#
+# 배포 목적은 원고 첨부 링크와 시연 영상 녹화다. 24/7 운영이 아니므로
+# 무료 티어의 콜드스타트(15분 유휴 후 슬립)는 문제가 되지 않는다 —
+# 녹화·확인 직전에 한 번 접속해 깨워두면 된다.
+#
+# DB 는 Postgres addon 대신 임시 SQLite 를 쓴다. Render 무료 Postgres 는
+# 생성 30일 후 삭제되는데, 지금(7월) 만들면 8/28 대면발표 전에 사라진다.
+# 배포본은 세션 데이터를 보존할 필요가 없어 재기동마다 시드를 다시 넣는 편이 안전하다.
+#
+# 워크숍 실제 운영은 이 배포본이 아니라 로컬 실행이 원칙이다.
+
+services:
+  - type: web
+    name: library-fairytale
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python -m playwright install --with-deps chromium
+    startCommand: |
+      python -m app.bootstrap && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      # 임시 SQLite — 재기동 시 초기화되고 부트스트랩이 다시 시드한다.
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./deploy.db
+      # 시크릿은 대시보드에서 직접 입력한다(sync:false → 커밋되지 않음).
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATA4LIBRARY_KEY
+        sync: false
