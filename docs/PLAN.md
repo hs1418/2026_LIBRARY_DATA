@@ -14,7 +14,7 @@
 ④ AI가 아이 말투 살려 문장 정리
 ⑤ 제본용 PDF 생성·프린트 — 상단 그림 빈칸 + 하단 글, 한/영 병기, 국가서지 API 판권기 1쪽
 ⑥ 아이가 그림을 그림 → 종이책 완성 (소장용)
-⑦ 이야기별 고정 추천도서 5권 영수증 출력 — 개인화 없음, 사전 큐레이션 (실시간 키워드 분석·아카이브 없음)
+⑦ 추천도서 5권 영수증 출력 — 아이 구술에서 뽑은 키워드로 정보나루 검색(ADR-0002), 실패 시 사전 큐레이션 5권 폴백
 ⑧ 도서관 물리적 전시 — 완성된 종이책 진열, 디지털 저장·촬영·아카이브 없음
 ```
 - ※ 기획서에서 "추천 서비스" 표현 금지 — ⑦은 "창작→독서 순환"으로만 서술 (추천 골격은 최다 소진 패턴).
@@ -65,19 +65,19 @@
 ## 개발자 상세 스코프 (2026-07-06 확정 — ADR-0001·0002)
 
 - **데이터 모델 (2테이블)**:
-  - `Story` (사전 시딩, 거의 전 필드 정적): title, cover_style, intro_summary(원작 앞부분 요약), intro_video_path(화면2 사전제작 영상), bibliography(판권기·서지), fixed_keywords, recommend_books(추천 폴백용 고정 5권)
-  - `Session` (런타임 생성): story_id, child_speech(구술), generated_ko, generated_en, created_at
-- **확정 API 5개** (런타임 생성은 generate 하나로 수렴):
+  - `Story` (사전 시딩, 거의 전 필드 정적): title, emoji, keyword, intro_summary(원작 앞부분 요약), intro_image(딱지본 스캔 — **파일 미확보, AI팀 대기**), bibliography(판권기·서지), fixed_keywords, recommend_books(추천 폴백용 고정 5권)
+  - `Session` (런타임 생성): story_id, lang, child_speech(구술), pages(페이지 분할 JSON, ADR-0005), keywords, created_at
+- **확정 API 6개** (런타임 생성은 generate 하나로 수렴):
   - `GET /api/stories` (서가) / `GET /api/stories/{id}` (상세)
   - `POST /api/stories/{id}/generate` (구술→LLM→뒷이야기 한/영 + 키워드 출력, Session 저장)
-  - `GET /api/sessions/{id}` (결과·영수증) / `GET /api/sessions/{id}/pdf` (A5 완전본)
+  - `GET /api/sessions/{id}` (결과·영수증) / `POST /api/sessions/{id}/pdf` (A5 완전본, 바디로 작가 이름 — ADR-0008) / `GET /api/sessions/demo/pdf` (오프라인 폴백)
   - `GET /api/sessions/{id}/recommendations` (키워드→정보나루 검색→LLM 추천, 실패 시 Story.recommend_books 폴백)
 - **STT**: 브라우저 Web Speech API(Chrome) + 수정 가능 텍스트박스로 진행자 보정 — 서버 STT 엔드포인트 없음
-- **화면2 영상**: 이야기당 사전제작 영상 재생(`<video>`+경로) — 실시간 생성 안 함. 지연 시 정적 삽화+자막 폴백
+- **화면2 영상**: 미구현 — 현재 화면3은 원작 요약 텍스트 카드로만 되어 있다. 영상을 넣을지 텍스트로 확정할지 디자인팀 확인 대기
 - **영수증 키워드**: generate LLM 응답에 함께 출력 (별도 호출 없음, 아이 구술 기반)
-- **PDF**: WeasyPrint(HTML+CSS→PDF), A5 한 페이지씩, 표지+원작 앞부분+아이 뒷부분 완전본 (reportlab 기각 — 디자인이 못 건드림)
+- **PDF**: Playwright(Chromium, HTML+CSS→PDF), A5 한 페이지씩, 표지+원작 앞부분+아이 뒷부분 완전본 (reportlab 기각 — 디자인이 못 건드림)
 - **오프라인 폴백**: 워크숍 당일 인터넷 문제 대비, 사전 생성 샘플 PDF 최소 1개 로컬 상비 (W5 준비)
-- **개인화 범위**: 세션 내 한정 (로그인·계정·아카이빙·사진저장·히스토리 없음)
+- **개인화 범위**: 세션 내 한정 (로그인·계정·아카이빙·사진저장·히스토리 없음). 아이 이름은 PDF 바디로만 전달, DB·URL·로그 어디에도 미기록 (ADR-0008)
 
 ## 핸드오프 맵
 
@@ -105,7 +105,7 @@
 
 **단순화 허용 범위**:
 - 잊힌 이야기 발굴: 전수 자동화 대신 수동 선별 1~2편 + 대출데이터 근거만 첨부
-- 도서 추천(⑦): 실시간 개인화 없음 — 이야기별 고정 리스트 5권, 사전 큐레이션(2026-07-05 확정)
+- 도서 추천(⑦): 세션 범위 개인화 — 키워드→정보나루→LLM(ADR-0002). 로그인·히스토리 없이 그 세션 입력만 반영. 정보나루 장애 시 고정 5권 폴백
 - 웹 데모: 로그인·다중사용자·배포안정성 불필요, 시연 1대에서만 안정적이면 됨
 - 삽화: AI 생성 없음 (아이가 직접 그림 — 스코프 자체에서 제외됨)
 - 지원 이야기 수: **1~2편**으로 제한 (완성도에 올인), 확장성은 발전방향에만 서술
