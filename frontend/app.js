@@ -42,13 +42,25 @@ const api = {
     getRecommendations(sessionId) {
         return fetchJson(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/recommendations', {}, 10000);
     },
-    getPdfUrl(sessionId, authorName) {
-        const params = new URLSearchParams();
-        if (authorName) {
-            params.set('author_name', authorName);
-        }
-        const qs = params.toString();
-        return API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/pdf' + (qs ? '?' + qs : '');
+    // 아이 이름은 URL(쿼리스트링)이 아니라 POST 바디로만 보낸다 — 서버 액세스 로그·
+    // 브라우저 히스토리에 이름이 남지 않게 하기 위함(NFR-6 / ADR-0005).
+    fetchPdfBlob(sessionId, authorName) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+
+        return fetch(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author_name: authorName }),
+            signal: controller.signal
+        })
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                return res.blob();
+            })
+            .finally(() => clearTimeout(timer));
     }
 };
 
@@ -328,13 +340,43 @@ function renderPdfPages(pages) {
     });
 }
 
-function handleDownloadPdf() {
+function showPdfError() {
+    el.pdfError.classList.add('visible');
+}
+
+function hidePdfError() {
+    el.pdfError.classList.remove('visible');
+}
+
+function pdfFileName() {
+    // 파일명에는 아이 이름을 넣지 않는다 — 다운로드 폴더에 이름이 남기 때문.
+    const title = (state.currentStory && state.currentStory.title) || '우리동화';
+    return title.replace(/[\\/:*?"<>|]/g, '') + '_동화책.pdf';
+}
+
+async function handleDownloadPdf() {
     if (!state.sessionId) {
         return;
     }
     const authorName = el.authorNameInput.value.trim();
-    const url = api.getPdfUrl(state.sessionId, authorName);
-    window.open(url, '_blank');
+    hidePdfError();
+    el.downloadPdfBtn.disabled = true;
+    try {
+        const blob = await api.fetchPdfBlob(state.sessionId, authorName);
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = pdfFileName();
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+        console.error('pdf download failed', err);
+        showPdfError();
+    } finally {
+        el.downloadPdfBtn.disabled = false;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -419,6 +461,7 @@ function goHome() {
     state.pages = [];
     state.keywords = [];
     el.authorNameInput.value = '';
+    hidePdfError();
     clearChildren(el.pdfScrollBox);
     resetSpeechState();
     goTo('screen1');
@@ -454,6 +497,7 @@ function init() {
         pdfScrollBox: document.getElementById('pdfScrollBox'),
         authorNameInput: document.getElementById('authorNameInput'),
         downloadPdfBtn: document.getElementById('downloadPdfBtn'),
+        pdfError: document.getElementById('pdfError'),
         receiptBanner: document.getElementById('receiptBanner'),
         receiptModal: document.getElementById('receiptModal'),
         closeReceiptBtn: document.getElementById('closeReceiptBtn'),

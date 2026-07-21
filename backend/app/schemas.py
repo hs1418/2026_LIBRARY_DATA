@@ -61,6 +61,16 @@ class SessionResult(BaseModel):
     keywords: list[str]
 
 
+# --- pdf ---
+class PdfRequest(BaseModel):
+    """PDF 렌더링 요청 — 아이 이름은 쿼리스트링이 아니라 바디로만 받는다.
+
+    URL 에 실리면 액세스 로그·브라우저 히스토리·Referer 에 남기 때문(NFR-6 / ADR-0005).
+    """
+
+    author_name: str = Field(default="", max_length=50)
+
+
 # --- recommendations ---
 class RecommendBook(BaseModel):
     title: str

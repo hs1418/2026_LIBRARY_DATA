@@ -5,13 +5,16 @@
 ② POST generate → session 생성·pages 3개·html.escape 적용(child_speech 의 <script> 이스케이프)
 ③ GET /api/sessions/{id} 200
 ④ recommendations 폴백 경로(정보나루 실패 시 fallback:true)
-PDF 는 별도 테스트(@pytest.mark.pdf)로 분리 — 서비스 함수를 직접 1회 호출해 바이트 > 0 확인.
+⑤ POST /pdf — 이름은 바디로만 받고 렌더링에만 쓰이며 sessions 행에 저장되지 않음(NFR-6)
+⑥ GET /pdf 는 demo 폴백 전용
+실제 Playwright 렌더링은 @pytest.mark.pdf 로 분리 — 서비스 함수를 직접 1회 호출해 바이트 > 0 확인.
 """
 import json
 
 import httpx
 import pytest
 import pytest_asyncio
+import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -25,6 +28,9 @@ from app.services import pdf as pdf_service
 
 # child_speech 에 주입할 XSS 페이로드 — 응답에서 이스케이프됐는지 검증.
 INJECTED_SPEECH = "두꺼비가 독을 막아줘서 <script>alert(1)</script>"
+
+# PDF 요청에 실어 보내는 아이 이름 — 어디에도 저장되면 안 되는 값(NFR-6 / ADR-0005).
+AUTHOR_NAME = "김토스"
 
 
 @pytest_asyncio.fixture
@@ -151,6 +157,59 @@ async def test_golden_path(client: AsyncClient):
 async def test_story_not_found(client: AsyncClient):
     resp = await client.get("/api/stories/9999")
     assert resp.status_code == 404
+
+
+async def test_pdf_post_renders_and_never_persists_author_name(client: AsyncClient, monkeypatch):
+    """아이 이름은 POST 바디로만 받고(URL 노출 없음), 렌더링에만 쓰고 저장하지 않는다(NFR-6)."""
+    captured = {}
+
+    async def fake_html_to_pdf(html_str: str) -> bytes:
+        # Chromium 없이도 돌게 렌더 단계만 대체 — HTML 생성(Jinja2)은 실제로 수행된다.
+        captured["html"] = html_str
+        return b"%PDF-1.4 fake"
+
+    monkeypatch.setattr(pdf_service, "html_to_pdf", fake_html_to_pdf)
+
+    stories = (await client.get("/api/stories")).json()
+    resp = await client.post(
+        f"/api/stories/{stories[0]['id']}/generate",
+        json={"lang": "ko", "child_speech": "두꺼비가 도와줬어요."},
+    )
+    session_id = resp.json()["session_id"]
+
+    # (a) 바디로 이름 전달 → PDF 200
+    resp = await client.post(
+        f"/api/sessions/{session_id}/pdf", json={"author_name": AUTHOR_NAME}
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+    # 이름은 렌더링에는 반영된다.
+    assert AUTHOR_NAME in captured["html"]
+
+    # (b) 그 이름이 sessions 행 어디에도 저장되지 않음 — 컬럼 전체를 문자열로 훑는다.
+    agen = app.dependency_overrides[get_session]()
+    db = await agen.__anext__()
+    try:
+        rows = (await db.execute(sa.text("SELECT * FROM sessions"))).mappings().all()
+    finally:
+        await agen.aclose()
+    assert rows
+    for row in rows:
+        assert AUTHOR_NAME not in " ".join(str(v) for v in row.values())
+        assert "author" not in " ".join(row.keys()).lower()
+
+
+async def test_pdf_get_is_demo_fallback_only(client: AsyncClient):
+    """(c) demo GET 폴백은 그대로 동작하고, 숫자 세션 GET 은 POST 안내로 막힌다."""
+    resp = await client.get("/api/sessions/demo/pdf")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+
+    resp = await client.get("/api/sessions/1/pdf")
+    assert resp.status_code == 400
+    assert "POST" in resp.json()["detail"]
 
 
 @pytest.mark.pdf
