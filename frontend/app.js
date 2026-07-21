@@ -180,17 +180,31 @@ async function loadStories() {
 /* 화면 3: 이야기 앞부분                                                */
 /* ------------------------------------------------------------------ */
 
+// 딱지본 스캔은 아직 확보되지 않은 이야기가 있다. 경로가 없거나 파일이 404 면
+// 빈 액자가 남지 않도록 영역째 숨긴다(요약 텍스트만으로도 화면이 성립한다).
+function showIntroImage(path) {
+    if (!path) {
+        el.introImageWrap.style.display = 'none';
+        return;
+    }
+    el.introImage.onerror = () => { el.introImageWrap.style.display = 'none'; };
+    el.introImage.onload = () => { el.introImageWrap.style.display = 'block'; };
+    el.introImage.src = path;
+}
+
 async function selectStory(id) {
     try {
         const detail = await api.getStory(id);
         state.currentStory = detail;
         el.storyTitle.textContent = detail.title || '';
         el.introSummary.textContent = detail.intro_summary || '';
+        showIntroImage(detail.intro_image);
     } catch (err) {
         console.error('failed to load story detail', err);
         state.currentStory = { id: id, title: '' };
         el.storyTitle.textContent = '-';
         el.introSummary.textContent = '이야기를 불러오지 못했어요. 다시 시도해 주세요.';
+        showIntroImage(null);
     }
     goTo('screen3');
 }
@@ -502,6 +516,8 @@ function init() {
         bookGrid: document.getElementById('bookGrid'),
         storyTitle: document.getElementById('storyTitle'),
         introSummary: document.getElementById('introSummary'),
+        introImageWrap: document.getElementById('introImageWrap'),
+        introImage: document.getElementById('introImage'),
         goScreen4Btn: document.getElementById('goScreen4Btn'),
         micBtn: document.getElementById('micBtn'),
         micUnsupportedNote: document.getElementById('micUnsupportedNote'),

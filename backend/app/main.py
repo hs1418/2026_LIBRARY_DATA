@@ -45,6 +45,11 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+# 딱지본 스캔 등 정적 자산. 루트 마운트보다 먼저 걸어야 가려지지 않는다.
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 # 디자이너 목업 기반 프론트를 루트에 마운트(html=True). 라우터(/api, /health) 등록 뒤에 둔다.
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 if _FRONTEND_DIR.is_dir():
