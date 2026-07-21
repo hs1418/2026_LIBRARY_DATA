@@ -4,6 +4,9 @@
 # 무료 티어의 콜드스타트(15분 유휴 후 슬립)는 문제가 되지 않는다 —
 # 녹화·확인 직전에 한 번 접속해 깨워두면 된다.
 #
+# 런타임은 Docker 다. 네이티브 Python 런타임에서는 Chromium 의 시스템 라이브러리를
+# 설치할 수 없어(root 불가) PDF 생성만 500 이 났다. 경위는 Dockerfile 주석 참조.
+#
 # DB 는 Postgres addon 대신 임시 SQLite 를 쓴다. Render 무료 Postgres 는
 # 생성 30일 후 삭제되는데, 지금(7월) 만들면 8/28 대면발표 전에 사라진다.
 # 배포본은 세션 데이터를 보존할 필요가 없어 재기동마다 시드를 다시 넣는 편이 안전하다.
@@ -13,23 +16,12 @@
 services:
   - type: web
     name: library-fairytale
-    runtime: python
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
     region: singapore
-    rootDir: backend
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      # --with-deps 는 apt-get 을 위해 root 로 전환하는데 Render 무료 런타임은
-      # root 를 허용하지 않아 빌드가 죽는다(su: Authentication failure).
-      # 브라우저 바이너리만 받고, 시스템 라이브러리는 런타임 이미지 것에 기댄다.
-      python -m playwright install chromium
-    startCommand: |
-      python -m app.bootstrap && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.13.5"
       # 임시 SQLite — 재기동 시 초기화되고 부트스트랩이 다시 시드한다.
       - key: DATABASE_URL
         value: sqlite+aiosqlite:///./deploy.db
