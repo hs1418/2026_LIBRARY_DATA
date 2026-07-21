@@ -30,8 +30,8 @@ PRIVACY_NOTICE = (
     "일회성으로 사용되었으며, 서버에 저장되거나 수집되지 않았음을 알립니다."
 )
 
-PUBLISHER_KO = "우리 전래동화 AI 도서관"
-PUBLISHER_EN = "Our Folktale AI Library"
+PUBLISHER_KO = "우리 전래동화 상상 도서관"
+PUBLISHER_EN = "Our Folktale Imagination Library"
 
 _MONTHS_EN = (
     "January", "February", "March", "April", "May", "June",
@@ -42,6 +42,7 @@ _MONTHS_EN = (
 _LABELS: dict[str, dict[str, str]] = {
     "ko": {
         "cover_kicker": "나만의 상상 동화책",
+        "edition_suffix": "(창작본)",
         "draw_hint": "이곳에 그림을 그려보세요 🖍️",
         "default_author": "어린이 작가",
         "author_prefix": "글/그림 : ",
@@ -50,12 +51,13 @@ _LABELS: dict[str, dict[str, str]] = {
         "publisher_label": "발행처 : ",
         "publisher": PUBLISHER_KO,
         "colophon_note": (
-            "이 책은 AI 도서관 시스템을 통해 아이의 상상력으로 완성된 "
+            "이 책은 상상 도서관에서 아이의 상상력으로 완성된 "
             "단 하나뿐인 창작 동화입니다."
         ),
     },
     "en": {
         "cover_kicker": "My Own Storybook",
+        "edition_suffix": "(Original Edition)",
         "draw_hint": "Draw your picture here 🖍️",
         "default_author": "a young author",
         "author_prefix": "Written & drawn by ",
@@ -65,7 +67,7 @@ _LABELS: dict[str, dict[str, str]] = {
         "publisher": PUBLISHER_EN,
         "colophon_note": (
             "This one-of-a-kind story was completed by a child's imagination "
-            "through the AI Library system."
+            "at the Imagination Library."
         ),
     },
 }

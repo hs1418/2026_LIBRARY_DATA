@@ -79,7 +79,8 @@
     font-size: 32px; font-weight: 800; color: var(--primary-celadon);
     margin: 0 0 20px; line-height: 1.3; word-break: keep-all;
   }
-  .cover-kicker { display: block; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  /* 디자인 원본은 kicker 와 제목을 같은 32px/800 로 두고 <br> 로만 나눈다. */
+  .cover-kicker { display: block; }
   .cover-author { font-size: 16px; font-weight: 600; color: var(--text-main); margin-top: 40px; }
 
   /* 판권기 */
@@ -139,7 +140,7 @@
   </div>
   {% elif page.kind == 'colophon' %}
   <div class="a5-half colophon">
-    <div class="colophon-title">{{ story.title }}</div>
+    <div class="colophon-title">{{ story.title }} {{ t.edition_suffix }}</div>
     <div>{{ t.pubdate_label }}{{ pubdate }}</div>
     <div>{{ t.author_label }}{{ author }}</div>
     <div>{{ t.publisher_label }}{{ t.publisher }}</div>
