@@ -1,0 +1,16 @@
+# 로컬 개발용 Postgres 단일 서비스.
+# 포트 5433:5432 로 매핑해 로컬에 이미 떠 있는 5432 와 충돌을 피한다.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-library}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-library}
+      POSTGRES_DB: ${POSTGRES_DB:-library}
+    ports:
+      - "5433:5432"
+    volumes:
+      - library_pgdata:/var/lib/postgresql/data
+
+volumes:
+  library_pgdata:

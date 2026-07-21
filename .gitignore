@@ -18,3 +18,7 @@ backend/static/generated/
 Thumbs.db
 .idea/
 .vscode/
+
+# 로컬 스모크 DB
+*.db
+backend/poc_page*.png

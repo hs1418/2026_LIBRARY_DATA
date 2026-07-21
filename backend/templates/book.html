@@ -1,0 +1,82 @@
+{# A5(148x210mm) 제본용 그림책 템플릿 — poc_pdf.py 의 검증된 HTML 을 Jinja2 화한 임시본.
+   ※ W2 말 디자인이 완성 HTML/CSS 템플릿(고려청자 팔레트)으로 교체할 자리(부록B 핸드오프).
+   autoescape 는 pdf.py 에서 켜져 있다 — 이 템플릿의 값 삽입은 전부 이스케이프된다(§3-3). #}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg-paper: #F6F5F2;
+    --primary-celadon: #4A7C68;
+    --celadon-light: #E4ECE8;
+    --text-main: #2C2A29;
+    --text-sub: #7A827F;
+  }
+  @page { size: 148mm 210mm; margin: 0; }
+  * { margin: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; }
+  .page {
+    width: 148mm; height: 210mm;
+    page-break-after: always;
+    background: var(--bg-paper);
+    display: flex; flex-direction: column;
+    padding: 12mm;
+  }
+  .cover { justify-content: center; align-items: center; text-align: center;
+           background: var(--celadon-light); }
+  .cover .emoji { font-size: 40pt; margin-bottom: 8mm; }
+  .cover h1 { font-size: 24pt; color: var(--primary-celadon); margin-bottom: 4mm; }
+  .cover .author { font-size: 12pt; color: var(--text-sub); }
+  .draw-box {
+    flex: 1;
+    border: 1.2mm dashed rgba(74, 124, 104, 0.4);
+    border-radius: 4mm;
+    display: flex; justify-content: center; align-items: center;
+    color: var(--text-sub); font-size: 9pt;
+  }
+  .text-box { padding-top: 8mm; }
+  .text-ko { font-size: 13pt; line-height: 1.7; color: var(--text-main); }
+  .text-en { font-size: 9pt; line-height: 1.5; color: var(--primary-celadon); margin-top: 3mm; }
+  .page-no { text-align: center; color: var(--text-sub); font-size: 8pt; margin-top: 4mm; }
+  .colophon { justify-content: flex-end; }
+  .colophon .box { border-top: 0.5mm solid var(--primary-celadon); padding-top: 5mm;
+                   font-size: 8.5pt; line-height: 1.8; color: var(--text-sub); }
+</style>
+</head>
+<body>
+  {# 표지 #}
+  <div class="page cover">
+    <div class="emoji">{{ story.emoji }}</div>
+    <h1>{{ story.title }}</h1>
+    <div class="author">
+      {% if author_name %}글·그림 {{ author_name }} | {% endif %}원작: 100년 전 딱지본
+    </div>
+  </div>
+
+  {# 본문 — pages 반복 #}
+  {% for page in pages %}
+  <div class="page">
+    <div class="draw-box">🖍️ 그림 그리는 곳</div>
+    <div class="text-box">
+      <div class="text-ko">{{ page.ko }}</div>
+      <div class="text-en">{{ page.en }}</div>
+    </div>
+    <div class="page-no">{{ page.no }}</div>
+  </div>
+  {% endfor %}
+
+  {# 판권기 — bibliography #}
+  <div class="page colophon">
+    <div class="box">
+      {% if story.bibliography %}
+        원작: 『{{ story.bibliography.title }}』
+        {% if story.bibliography.year %}{{ story.bibliography.year }}년 {% endif %}
+        {% if story.bibliography.publisher %}{{ story.bibliography.publisher }} 발행{% endif %}
+        {% if story.bibliography.source %}({{ story.bibliography.source }}){% endif %}<br>
+      {% endif %}
+      2026 도서관 데이터 활용 공모전 · 우리 전래동화 AI 도서관
+    </div>
+  </div>
+</body>
+</html>

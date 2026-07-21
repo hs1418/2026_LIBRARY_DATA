@@ -16,6 +16,8 @@
 
 PDF는 WeasyPrint(HTML+CSS→PDF), A5 한 페이지씩, 표지+원작 앞부분+아이가 쓴 뒷부분 완전본. STT는 브라우저 Web Speech API + 수정 가능 텍스트박스(진행자 보정). 화면2 소개영상은 이야기당 사전제작 영상 재생(`<video>` + 경로).
 
+> **일부 대체됨 (2026-07-17, ADR-0006)**: PDF 엔진은 WeasyPrint가 Windows GTK 의존 문제로 기각되고 Playwright(Chromium)로 교체됐다. A5·완전본 구성 등 나머지는 유효하다.
+
 ## 기각 대안
 
 - 서버 STT 엔드포인트: 오디오 업로드·API키·네트워크 왕복으로 실패 지점 추가 — 브라우저 처리로 불필요.
