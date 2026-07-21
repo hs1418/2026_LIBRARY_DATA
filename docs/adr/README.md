@@ -8,5 +8,6 @@
 | [0004](0004-external-call-resilience.md) | 외부 호출 장애 대응 (LLM·정보나루·오프라인 폴백) | 2026-07-06 | accepted |
 | [0005](0005-design-driven-scope.md) | 디자인 반영 — 페이지 분할·언어 선택 도입, 이메일·전광판 컷 | 2026-07-16 | accepted |
 | [0006](0006-pdf-engine-playwright.md) | PDF 엔진 — WeasyPrint→Playwright(Chromium) 교체 | 2026-07-17 | accepted |
+| [0007](0007-llm-provider-groq.md) | LLM 공급자 — Gemini→Groq/Llama 3.1, 추천 문구 제거 | 2026-07-21 | accepted |
 
 전체 조망은 [ARCHITECTURE.md](../ARCHITECTURE.md).
