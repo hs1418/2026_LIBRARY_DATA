@@ -12,8 +12,8 @@
 
 | 역할 | 담당 | 핵심 기여 내용 |
 |------|------|------|
-| **AI & Data**<br>(Leader) | **본인 (hs1481)** | • `Groq Llama-3.1` 및 `Whisper-large-v3` 기반 오디오-텍스트-JSON 파이프라인 설계<br>• 아동 구술 단절 극복을 위한 **'증분형 텍스트 누적 인터페이스'** 가이드 제안<br>• 도서관 정보나루 빅데이터 API 연동 및 **3계층 서비스 폴백(Fallback) 데이터 엔지니어링**<br>• 잊힌 옛이야기(딱지본) 발굴 및 서비스 원천 데이터셋(`data/`) 구축 |
-| **Development** | 팀원 (개발) | • FastAPI 기반 백엔드 아키텍처 및 데이터베이스(PostgreSQL) 구축<br>• Jinja2 + WeasyPrint/Playwright 기반 A5 그림책 PDF 렌더링 파이프라인 구현<br>• Vanilla HTML/CSS/JS 프론트엔드 라우팅 및 Web Speech API 연동 |
+| **AI & Data**<br>| **본인 (hs1481)** | • `Groq Llama-3.1` 및 `Whisper-large-v3` 기반 오디오-텍스트-JSON 파이프라인 설계<br>• 아동 구술 단절 극복을 위한 **'증분형 텍스트 누적 인터페이스'** 가이드 제안<br>• 도서관 정보나루 빅데이터 API 연동 및 **3계층 서비스 폴백(Fallback) 데이터 엔지니어링**<br>• 잊힌 옛이야기(딱지본) 발굴 및 서비스 원천 데이터셋(`data/`) 구축 |
+| **Backend** | 팀원 (Leader)| • FastAPI 기반 백엔드 아키텍처 및 데이터베이스(PostgreSQL) 구축<br>• Jinja2 + WeasyPrint/Playwright 기반 A5 그림책 PDF 렌더링 파이프라인 구현<br>• Vanilla HTML/CSS/JS 프론트엔드 라우팅 및 Web Speech API 연동 |
 | **Design** | 팀원 (디자인) | • 고려청자 색감 팔레트 기반의 웹 UI/UX 목업 디자인<br>• 제본용 A5 그림책 레이아웃 및 상상 영수증 출력 템플릿 가이드라인 제작 |
 
 ## 📂 프로젝트 문서 목록
