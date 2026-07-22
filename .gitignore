@@ -25,3 +25,7 @@ backend/poc_page*.png
 
 # 배포 부트스트랩 DB
 backend/deploy*.db
+
+# 테스트/개발 산출물
+backend/*.pdf
+backend/*.png
