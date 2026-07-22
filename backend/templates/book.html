@@ -114,6 +114,13 @@
   }
   .page-number { text-align: center; font-size: 12px; color: #999; margin-top: 10px; }
 
+  /* 빈 페이지가 실수로 보이지 않도록, 의도된 '보너스 그림 페이지'임을 밝히는 라벨.
+     인쇄에서도 보이게 둔다(그림칸 안내문과 달리 @media print 에서 숨기지 않는다). */
+  .blank-label {
+    width: 100%; text-align: center; color: var(--primary-celadon);
+    font-size: 15px; font-weight: 600; opacity: 0.85;
+  }
+
   /* 인쇄 설정 — Playwright page.pdf() 는 기본이 print 미디어라 이 블록이 적용된다. */
   @media print {
     @page { size: A4 landscape; margin: 0; }
@@ -155,7 +162,11 @@
       <div class="drawing-area"></div>
       <div class="drawing-text">{{ t.draw_hint }}</div>
     </div>
-    {% if page.kind != 'blank' %}
+    {% if page.kind == 'blank' %}
+    <div class="text-area">
+      <div class="blank-label">{{ t.blank_label }}</div>
+    </div>
+    {% else %}
     <div class="text-area">
       <div class="story-text">{{ page.text }}</div>
     </div>
