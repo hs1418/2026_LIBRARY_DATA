@@ -82,17 +82,28 @@ def test_page_count_is_multiple_of_four(n: int, total: int, sheets: int):
 
 
 # ── (b) 반접기 배치 순서 ──────────────────────────────────────────────────────
-def test_impose_orders_pages_for_folding():
+def test_impose_saddle_stitch_8pages():
+    """중철 배치 — 2장 겹쳐 한 번 접으면 1→8 순서로 읽힌다."""
     pages = [{"n": i} for i in range(1, 9)]
     sheets = pdf_service.impose(pages)
 
     assert len(sheets) == 4
-    # 묶음 1(1~4): 바깥 면 [4][1], 안쪽 면 [2][3]
-    assert (sheets[0]["left"]["n"], sheets[0]["right"]["n"]) == (4, 1)
-    assert (sheets[1]["left"]["n"], sheets[1]["right"]["n"]) == (2, 3)
-    # 묶음 2(5~8): 바깥 면 [8][5], 안쪽 면 [6][7]
-    assert (sheets[2]["left"]["n"], sheets[2]["right"]["n"]) == (8, 5)
-    assert (sheets[3]["left"]["n"], sheets[3]["right"]["n"]) == (6, 7)
+    assert (sheets[0]["left"]["n"], sheets[0]["right"]["n"]) == (8, 1)  # 겉면: 판권기 | 표지
+    assert (sheets[1]["left"]["n"], sheets[1]["right"]["n"]) == (2, 7)
+    assert (sheets[2]["left"]["n"], sheets[2]["right"]["n"]) == (6, 3)
+    assert (sheets[3]["left"]["n"], sheets[3]["right"]["n"]) == (4, 5)
+
+
+def test_impose_cover_and_colophon_on_outer_sheet():
+    """쪽수와 무관하게 표지(1)는 첫 시트 오른쪽, 판권기(N)는 첫 시트 왼쪽."""
+    for n in (4, 8, 12):
+        pages = [{"n": i} for i in range(1, n + 1)]
+        sheets = pdf_service.impose(pages)
+        assert sheets[0]["right"]["n"] == 1
+        assert sheets[0]["left"]["n"] == n
+        # 모든 쪽이 정확히 한 번씩 등장
+        seen = sorted(s[side]["n"] for s in sheets for side in ("left", "right"))
+        assert seen == list(range(1, n + 1))
 
 
 def test_impose_rejects_non_multiple_of_four():
@@ -106,8 +117,9 @@ def test_rendered_html_follows_imposition_order():
 
     # a4-sheet 는 8쪽 → 4장.
     assert html.count('class="a4-sheet"') == 4
-    # 배치: [3][표지] / [1][2] / [판권기][4] / [5][6]
-    assert _page_numbers(html) == [3, 1, 2, 4, 5, 6]
+    # 중철 배치(논리쪽): 1면[판권기|표지] 2면[원작|뒷5] 3면[뒷4|뒷1] 4면[뒷2|뒷3]
+    # 인쇄 번호(원작=1, 뒷1=2 … 뒷5=6): 표지·판권기는 번호 없음.
+    assert _page_numbers(html) == [1, 6, 5, 2, 3, 4]
 
 
 # ── (c) 언어 단일 출력 ───────────────────────────────────────────────────────

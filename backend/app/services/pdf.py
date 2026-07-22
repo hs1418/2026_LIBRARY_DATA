@@ -132,21 +132,30 @@ def build_pages(story: Story, session: Session, lang: str) -> list[dict]:
 
 
 def impose(pages: list[dict]) -> list[dict]:
-    """반접기 배치 — 4쪽 묶음마다 A4 두 장(바깥 면·안쪽 면)을 만든다.
+    """중철(saddle-stitch) 배치.
 
-    묶음 k(쪽 4k+1 ~ 4k+4):
-      바깥 면 A4: 왼쪽=쪽(4k+4), 오른쪽=쪽(4k+1)
-      안쪽 면 A4: 왼쪽=쪽(4k+2), 오른쪽=쪽(4k+3)
-    각 장을 반 접어 순서대로 겹치면 책이 된다.
+    A4 여러 장을 통째로 겹쳐 가운데를 한 번 접는 제본이다. N쪽(4의 배수)일 때
+    바깥 시트부터 안쪽으로 들어가며 쪽이 짝지어진다:
+
+      시트 i(0-indexed): 바깥면 [쪽(N-2i) | 쪽(1+2i)]
+                         안쪽면 [쪽(2+2i) | 쪽(N-1-2i)]
+
+    예) 8쪽: 1면[8|1] 2면[2|7] 3면[6|3] 4면[4|5].
+    2장을 겹쳐 한 번 접으면 표지→…→판권기가 순서대로 읽힌다.
+
+    이전에는 4쪽 묶음마다 독립적으로 접는 방식이었는데, 8쪽 이상에서
+    판권기가 겉표지 뒷면이 아니라 중간 시트로 밀려나 제본 순서가 어긋났다
+    (디자인팀 피드백). 4쪽(단일 시트)에서는 두 방식 결과가 같다.
     """
-    if len(pages) % PAGES_PER_SIGNATURE:
-        raise ValueError(f"총 쪽수는 {PAGES_PER_SIGNATURE}의 배수여야 한다: {len(pages)}")
+    n = len(pages)
+    if n % PAGES_PER_SIGNATURE:
+        raise ValueError(f"총 쪽수는 {PAGES_PER_SIGNATURE}의 배수여야 한다: {n}")
 
     sheets: list[dict] = []
-    for start in range(0, len(pages), PAGES_PER_SIGNATURE):
-        p1, p2, p3, p4 = pages[start : start + PAGES_PER_SIGNATURE]
-        sheets.append({"side": "outer", "left": p4, "right": p1})
-        sheets.append({"side": "inner", "left": p2, "right": p3})
+    for i in range(n // 2 // 2):  # 시트 수 = N/4
+        # 1-indexed 쪽 번호를 0-indexed 리스트 접근으로.
+        sheets.append({"side": "outer", "left": pages[n - 1 - 2 * i], "right": pages[2 * i]})
+        sheets.append({"side": "inner", "left": pages[1 + 2 * i], "right": pages[n - 2 - 2 * i]})
     return sheets
 
 
