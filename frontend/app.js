@@ -141,6 +141,20 @@ function renderBookGrid(stories) {
         emoji.className = 'book-emoji';
         emoji.textContent = story.emoji || '📖';
 
+        // 표지 이미지가 있으면 카드 상단을 그림으로 채우고, 없거나 404 면 이모지로 폴백한다
+        // (딱지본 스캔과 같은 규칙 — 빈 액자를 남기지 않는다).
+        if (story.cover_image) {
+            const cover = document.createElement('img');
+            cover.className = 'book-cover';
+            cover.alt = '';
+            cover.loading = 'lazy';
+            cover.onerror = () => { card.replaceChild(emoji, cover); };
+            cover.src = story.cover_image;
+            card.appendChild(cover);
+        } else {
+            card.appendChild(emoji);
+        }
+
         const textWrap = document.createElement('div');
         textWrap.className = 'book-text-wrap';
 
@@ -154,7 +168,6 @@ function renderBookGrid(stories) {
 
         textWrap.appendChild(keyword);
         textWrap.appendChild(title);
-        card.appendChild(emoji);
         card.appendChild(textWrap);
 
         card.addEventListener('click', () => selectStory(story.id));

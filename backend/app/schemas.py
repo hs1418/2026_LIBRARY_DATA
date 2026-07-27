@@ -20,6 +20,8 @@ class StoryCard(BaseModel):
     title: str
     emoji: str
     keyword: str
+    # 표지 이미지 URL. 빈 문자열이면 프론트가 이모지 카드로 폴백한다.
+    cover_image: str = ""
 
 
 class StoryDetail(BaseModel):

@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_session
 from app.main import app
 from app.models import Story
+from app.seed import parse_seed_file
 from app.services import data4library, llm
 
 # child_speech 에 주입할 XSS 페이로드 — 저장은 raw, 렌더 계층에서 escape 되는지 검증한다.
@@ -22,8 +23,30 @@ INJECTED_SPEECH = "두꺼비가 독을 막아줘서 <script>alert(1)</script>"
 AUTHOR_NAME = "김토스"
 
 
-@pytest_asyncio.fixture
-async def client(monkeypatch):
+def kongjwi_story() -> Story:
+    """기존 테스트가 기대하는 1편 픽스처(제목·추천 2권까지 그대로 유지)."""
+    return Story(
+        title="콩쥐팥쥐",
+        emoji="🐸",
+        keyword="권선징악",
+        intro_summary="새어머니와 팥쥐는... 두꺼비가 나타나는데...",
+        intro_image="/static/scans/kongjwi_intro.jpg",
+        cover_image="/static/covers/kongjwi.jpg",
+        bibliography={
+            "title": "콩쥐팥쥐전",
+            "year": "1926",
+            "publisher": "미상(딱지본)",
+            "source": "국립중앙도서관 소장",
+        },
+        fixed_keywords=["권선징악", "보은", "지혜"],
+        recommend_books=[
+            {"title": "은혜 갚은 두꺼비", "call_number": "813.8-ㄷ"},
+            {"title": "우렁각시", "call_number": "813.8-ㅇ"},
+        ],
+    )
+
+
+async def _build_client(monkeypatch, stories: list[Story]):
     # --- SQLite 인메모리(StaticPool 로 단일 연결 공유) ---
     engine = create_async_engine(
         "sqlite+aiosqlite://",
@@ -35,28 +58,8 @@ async def client(monkeypatch):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # 시드 — 콩쥐팥쥐 1편
     async with TestSession() as session:
-        session.add(
-            Story(
-                title="콩쥐팥쥐",
-                emoji="🐸",
-                keyword="권선징악",
-                intro_summary="새어머니와 팥쥐는... 두꺼비가 나타나는데...",
-                intro_image="/static/scans/kongjwi_intro.jpg",
-                bibliography={
-                    "title": "콩쥐팥쥐전",
-                    "year": "1926",
-                    "publisher": "미상(딱지본)",
-                    "source": "국립중앙도서관 소장",
-                },
-                fixed_keywords=["권선징악", "보은", "지혜"],
-                recommend_books=[
-                    {"title": "은혜 갚은 두꺼비", "call_number": "813.8-ㄷ"},
-                    {"title": "우렁각시", "call_number": "813.8-ㅇ"},
-                ],
-            )
-        )
+        session.add_all(stories)
         await session.commit()
 
     async def override_get_session():
@@ -93,3 +96,18 @@ async def client(monkeypatch):
 
     app.dependency_overrides.clear()
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client(monkeypatch):
+    """콩쥐팥쥐 1편만 시딩된 클라이언트 — 기존 테스트 계약."""
+    async for ac in _build_client(monkeypatch, [kongjwi_story()]):
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def full_client(monkeypatch):
+    """AI팀 시드 파일 10편을 파서로 읽어 그대로 시딩한 클라이언트."""
+    stories = [Story(**data) for data in parse_seed_file()]
+    async for ac in _build_client(monkeypatch, stories):
+        yield ac

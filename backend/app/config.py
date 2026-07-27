@@ -18,9 +18,10 @@ class Settings(BaseSettings):
     # DB — 테스트는 이 값을 override 해 SQLite(aiosqlite)로 돌린다.
     database_url: str = "postgresql+asyncpg://library:library@localhost:5433/library"
 
-    # Groq (LLM) — Llama 3.1 8B instant
+    # Groq (LLM) — AI팀 v1.3 지정은 llama-3.1-70b-versatile 였으나 Groq 에서 은퇴된
+    # 모델이라(2026-07-23 /v1/models 실측) 후속인 llama-3.3-70b-versatile 로 치환.
     groq_api_key: str = ""
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "llama-3.3-70b-versatile"
 
     # 정보나루
     data4library_key: str = ""

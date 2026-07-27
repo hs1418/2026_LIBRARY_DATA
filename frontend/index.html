@@ -106,6 +106,12 @@
         }
         .book-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 8px; background-color: var(--primary-celadon); }
         .book-emoji { font-size: 32px; margin-bottom: auto; }
+        /* 표지 이미지가 있는 카드 — 남는 높이를 그림이 채우고 제목/키워드는 아래에 남는다.
+           고정 픽셀 높이를 쓰지 않아 카드 폭이 달라져도 비율이 깨지지 않는다. */
+        .book-cover {
+            width: 100%; flex: 1; min-height: 0; object-fit: cover;
+            border-radius: 12px; margin-bottom: 12px; background-color: var(--bg-paper);
+        }
         .book-text-wrap { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
         .book-keyword { font-size: 11px; font-weight: 700; color: var(--accent-red); }
         .book-title { font-size: 18px; font-weight: 700; color: var(--text-main); line-height: 1.2; letter-spacing: -0.5px; }

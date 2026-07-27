@@ -8,6 +8,8 @@ A4 가로 한 장(297x210mm)에 A5 두 면을 배치하고 반으로 접어 책�
 Jinja2 autoescape 필수(§3-3 XSS 차단선). session id 가 "demo" 면 오프라인 폴백 PDF 서빙.
 WeasyPrint 금지(ADR-0006, Windows GTK 문제).
 """
+import base64
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,10 +18,14 @@ from playwright.async_api import async_playwright
 
 from app.models import Session, Story
 
+logger = logging.getLogger(__name__)
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 FALLBACK_PDF = STATIC_DIR / "fallback_sample.pdf"
+
+STATIC_URL_PREFIX = "/static/"
 
 # 접지 한 묶음(A4 앞/뒤 한 장)에 들어가는 쪽 수. 총 쪽수는 이 값의 배수여야 한다.
 PAGES_PER_SIGNATURE = 4
@@ -51,6 +57,9 @@ _LABELS: dict[str, dict[str, str]] = {
         "author_label": "글/그림 : ",
         "publisher_label": "발행처 : ",
         "publisher": PUBLISHER_KO,
+        "original_label": "원작 : ",
+        # 시드에 실서지가 없는 이야기용 폴백 — 발행연도를 지어내지 않는다(허위 서지 방지).
+        "original_fallback": "원작 : 옛이야기(구전) — 국립중앙도서관 소장 자료 기반",
         "colophon_note": (
             "이 책은 상상 도서관에서 아이의 상상력으로 완성된 "
             "단 하나뿐인 창작 동화입니다."
@@ -67,6 +76,11 @@ _LABELS: dict[str, dict[str, str]] = {
         "author_label": "Written & drawn by ",
         "publisher_label": "Published by : ",
         "publisher": PUBLISHER_EN,
+        "original_label": "Original : ",
+        "original_fallback": (
+            "Original : a Korean folktale passed down orally — "
+            "based on National Library of Korea holdings"
+        ),
         "colophon_note": (
             "This one-of-a-kind story was completed by a child's imagination "
             "at the Imagination Library."
@@ -103,6 +117,62 @@ def author_display(author_name: str, lang: str) -> str:
     if not name:
         return _LABELS[lang]["default_author"]
     return f"{name} 어린이" if lang == "ko" else name
+
+
+def original_credit(story: Story, lang: str) -> str:
+    """판권기의 '원작' 한 줄.
+
+    실서지(발행처·발행연도)가 확보된 이야기만 그 값을 찍는다. 시드에 서지가 없으면
+    연도를 지어내는 대신 구전 원작임을 밝히는 일반 문구로 폴백한다 — 인쇄물에 허위
+    서지가 박히면 심사·자료 신뢰도 리스크가 된다(전래동화 10편 중 9편이 이 경우).
+    """
+    bib = story.bibliography if isinstance(story.bibliography, dict) else {}
+    parts = [
+        str(bib.get(key, "")).strip()
+        for key in ("title", "publisher", "year")
+        if str(bib.get(key, "")).strip()
+    ]
+    if not parts:
+        return _LABELS[lang]["original_fallback"]
+
+    line = _LABELS[lang]["original_label"] + " · ".join(parts)
+    source = str(bib.get("source", "")).strip()
+    return f"{line} ({source})" if source else line
+
+
+_COVER_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+
+
+def cover_data_uri(cover_image: str) -> str:
+    """표지 이미지 URL(/static/...) → base64 data URI. 없거나 못 읽으면 빈 문자열.
+
+    왜 file:// 절대경로가 아니라 base64 인라인인가:
+      html_to_pdf 는 page.set_content() 로 about:blank 문서에 HTML 을 심는다. 이 문서에서
+      file:// 하위 리소스 로드는 Chromium 이 차단하므로(file 스킴은 non-file 오리진에서
+      불러올 수 없다) 표지가 빈칸으로 렌더된다. data URI 는 문서 오리진과 무관하고
+      wait_until="load" 시점에 디코딩이 끝나 있어 로드 타이밍 문제도 없다.
+      표지 1장(약 0.5MB → base64 0.7MB)만 인라인하므로 HTML 크기도 감당 가능하다.
+
+    빈 문자열을 반환하면 템플릿이 이모지 표지로 폴백한다(파일 유실 대비 안전망).
+    """
+    path = (cover_image or "").strip()
+    if not path.startswith(STATIC_URL_PREFIX):
+        return ""
+
+    static_root = STATIC_DIR.resolve()
+    # 시드가 넣는 값이지만 경로 조작은 원천 차단한다 — static/ 밖은 거부.
+    target = (static_root / path[len(STATIC_URL_PREFIX) :]).resolve()
+    if static_root not in target.parents or not target.is_file():
+        logger.warning("표지 이미지를 찾지 못해 이모지 표지로 폴백: %s", path)
+        return ""
+
+    mime = _COVER_MIME.get(target.suffix.lower())
+    if mime is None:
+        logger.warning("표지 이미지 형식 미지원: %s", path)
+        return ""
+
+    encoded = base64.b64encode(target.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
 
 
 def build_pages(story: Story, session: Session, lang: str) -> list[dict]:
@@ -176,6 +246,8 @@ def render_book_html(story: Story, session: Session, author_name: str = "") -> s
         author=author_display(author_name, lang),
         pubdate=format_pubdate(session.created_at, lang),
         privacy_notice=PRIVACY_NOTICE,
+        cover_src=cover_data_uri(story.cover_image),
+        original_credit=original_credit(story, lang),
     )
 
 

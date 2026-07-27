@@ -20,6 +20,9 @@ class Story(Base):
     keyword: Mapped[str] = mapped_column(sa.String(100), default="", nullable=False)
     intro_summary: Mapped[str] = mapped_column(sa.Text, default="", nullable=False)
     intro_image: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)
+    # 디자인팀 표지 이미지(/static/covers/{slug}.jpg). 비어 있으면 이모지 표지로 폴백한다
+    # — 파일이 유실돼도 서가·PDF 가 깨지지 않게 하는 안전망.
+    cover_image: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)
     # 서지(판권기) / 폴백 키워드 / 폴백 추천도서 — 전부 시딩 시점에 채워지는 정적 데이터
     bibliography: Mapped[dict] = mapped_column(sa.JSON, default=dict, nullable=False)
     fixed_keywords: Mapped[list] = mapped_column(sa.JSON, default=list, nullable=False)
