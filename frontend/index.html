@@ -99,22 +99,36 @@
         /* 📚 도서 선택 그리드 */
         .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
         .book-card {
-            background-color: var(--white); border-radius: 20px; padding: 24px 20px;
+            background-color: var(--white); border-radius: 20px;
             box-shadow: var(--card-shadow); cursor: pointer; display: flex; flex-direction: column;
             border: 1px solid rgba(0,0,0,0.03); position: relative; overflow: hidden;
             aspect-ratio: 1 / 1.35;
         }
-        .book-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 8px; background-color: var(--primary-celadon); }
+        /* 표지가 카드를 가득 채우고, 아래에 [키워드]·제목만 작게 얹는다.
+           그림 자체가 이미 제목을 담고 있어 텍스트는 식별용 최소한으로 둔다. */
+        .book-card.has-cover { padding: 0; }
+        .book-card.no-cover { padding: 24px 20px; }
+        .book-card.no-cover::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 8px; background-color: var(--primary-celadon); }
         .book-emoji { font-size: 32px; margin-bottom: auto; }
         /* 표지 이미지가 있는 카드 — 남는 높이를 그림이 채우고 제목/키워드는 아래에 남는다.
            고정 픽셀 높이를 쓰지 않아 카드 폭이 달라져도 비율이 깨지지 않는다. */
         .book-cover {
             width: 100%; flex: 1; min-height: 0; object-fit: cover;
-            border-radius: 12px; margin-bottom: 12px; background-color: var(--bg-paper);
+            display: block; background-color: var(--bg-paper);
         }
         .book-text-wrap { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
         .book-keyword { font-size: 11px; font-weight: 700; color: var(--accent-red); }
         .book-title { font-size: 18px; font-weight: 700; color: var(--text-main); line-height: 1.2; letter-spacing: -0.5px; }
+        /* 표지 카드의 캡션 — 그림 아래 한 줄. [카테고리] 제목 순서로 작게. */
+        .book-caption {
+            padding: 8px 10px 10px; display: flex; align-items: baseline; gap: 5px;
+            background-color: var(--white);
+        }
+        .book-caption .cap-keyword { font-size: 10px; font-weight: 700; color: var(--accent-red); flex: none; }
+        .book-caption .cap-title {
+            font-size: 12px; font-weight: 600; color: var(--text-main); letter-spacing: -0.3px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
         .book-grid-empty { color: var(--text-sub); font-size: 14px; text-align: center; padding: 40px 0; grid-column: 1 / -1; }
 
         /* 🎤 마이크 녹음 UI */

@@ -127,6 +127,32 @@ function renderBookGridMessage(message) {
     el.bookGrid.appendChild(msg);
 }
 
+// 표지 없는(또는 로드 실패한) 카드 — 이모지 + 키워드 + 큰 제목 레이아웃.
+function renderCardFallback(card, story) {
+    clearChildren(card);
+    card.className = 'book-card no-cover';
+
+    const emoji = document.createElement('div');
+    emoji.className = 'book-emoji';
+    emoji.textContent = story.emoji || '📖';
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'book-text-wrap';
+
+    const keyword = document.createElement('span');
+    keyword.className = 'book-keyword';
+    keyword.textContent = story.keyword || '';
+
+    const title = document.createElement('span');
+    title.className = 'book-title';
+    title.textContent = story.title || '';
+
+    textWrap.appendChild(keyword);
+    textWrap.appendChild(title);
+    card.appendChild(emoji);
+    card.appendChild(textWrap);
+}
+
 function renderBookGrid(stories) {
     clearChildren(el.bookGrid);
     if (!stories.length) {
@@ -135,40 +161,37 @@ function renderBookGrid(stories) {
     }
     stories.forEach((story) => {
         const card = document.createElement('div');
-        card.className = 'book-card';
 
-        const emoji = document.createElement('div');
-        emoji.className = 'book-emoji';
-        emoji.textContent = story.emoji || '📖';
-
-        // 표지 이미지가 있으면 카드 상단을 그림으로 채우고, 없거나 404 면 이모지로 폴백한다
-        // (딱지본 스캔과 같은 규칙 — 빈 액자를 남기지 않는다).
+        // 표지 이미지가 있으면 그림이 카드를 가득 채우고 아래에 [키워드] 제목만 작게 얹는다.
+        // 없거나 404 면 이모지+큰제목 레이아웃으로 폴백한다(빈 액자를 남기지 않는다).
         if (story.cover_image) {
+            card.className = 'book-card has-cover';
+
             const cover = document.createElement('img');
             cover.className = 'book-cover';
             cover.alt = '';
             cover.loading = 'lazy';
-            cover.onerror = () => { card.replaceChild(emoji, cover); };
+            cover.onerror = () => { renderCardFallback(card, story); };
             cover.src = story.cover_image;
+
+            const caption = document.createElement('div');
+            caption.className = 'book-caption';
+
+            const capKeyword = document.createElement('span');
+            capKeyword.className = 'cap-keyword';
+            capKeyword.textContent = story.keyword ? '[' + story.keyword + ']' : '';
+
+            const capTitle = document.createElement('span');
+            capTitle.className = 'cap-title';
+            capTitle.textContent = story.title || '';
+
+            caption.appendChild(capKeyword);
+            caption.appendChild(capTitle);
             card.appendChild(cover);
+            card.appendChild(caption);
         } else {
-            card.appendChild(emoji);
+            renderCardFallback(card, story);
         }
-
-        const textWrap = document.createElement('div');
-        textWrap.className = 'book-text-wrap';
-
-        const keyword = document.createElement('span');
-        keyword.className = 'book-keyword';
-        keyword.textContent = story.keyword || '';
-
-        const title = document.createElement('span');
-        title.className = 'book-title';
-        title.textContent = story.title || '';
-
-        textWrap.appendChild(keyword);
-        textWrap.appendChild(title);
-        card.appendChild(textWrap);
 
         card.addEventListener('click', () => selectStory(story.id));
         el.bookGrid.appendChild(card);
