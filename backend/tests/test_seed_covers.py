@@ -21,7 +21,6 @@ EXPECTED_TITLES = [
     "콩쥐팥쥐전",
     "흥부놀부전",
     "해님달님전",
-    "혹부리 영감",
     "금도끼 은도끼",
     "별주부전",
     "은혜 갚는 까치",
@@ -35,7 +34,7 @@ TITLE_WITH_BIBLIOGRAPHY = "콩쥐팥쥐전"
 
 
 # ── (a) 파서 ────────────────────────────────────────────────────────────────
-def test_parser_reads_ten_stories_with_five_books_each():
+def test_parser_reads_active_stories_with_five_books_each():
     stories = parse_seed_file()
 
     assert SEED_FILE.is_file()
@@ -85,12 +84,12 @@ def test_parser_assigns_cover_and_keeps_bibliography_honest():
 
 
 # ── (b) 서가 API ────────────────────────────────────────────────────────────
-async def test_list_stories_returns_ten_with_cover_image(full_client: AsyncClient):
+async def test_list_stories_returns_active_stories_with_cover_image(full_client: AsyncClient):
     resp = await full_client.get("/api/stories")
     assert resp.status_code == 200
 
     stories = resp.json()
-    assert len(stories) == 10
+    assert len(stories) == len(EXPECTED_TITLES)
     assert [s["title"] for s in stories] == EXPECTED_TITLES
     # 표지가 매핑된 이야기는 경로를, 없는 이야기(오탈자로 제외 등)는 빈 값을 준다.
     with_cover = [s for s in stories if s["cover_image"]]

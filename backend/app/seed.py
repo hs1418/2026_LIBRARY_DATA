@@ -50,10 +50,15 @@ STORY_SLUGS: dict[str, str] = {
     "단군신화 (곰과 호랑이)": "dangun",
 }
 
-# 표지 그림에서만 제외되는 이야기. 혹부리 영감 표지는 그림 현판이 "흑부리 영감"으로
-# 잘못 그려져 있다(2026-07-27 확인) — 인쇄물에 오탈자가 박히므로 재생성 전까지 제외하고
-# 이모지 표지로 폴백한다. 음성은 표지 유무와 무관하게 10편 전부 생성·재생한다.
-COVER_EXCLUDED_TITLES: frozenset[str] = frozenset({"혹부리 영감"})
+# 서가에서 아예 빼는 이야기. 혹부리 영감 표지는 그림 현판이 "흑부리 영감"으로 잘못
+# 그려져 있다(2026-07-27 확인). 이모지 표지로 폴백하면 10편 중 한 칸만 그림이 없어
+# 서가가 미완성으로 보이므로, 표지가 재생성될 때까지 이야기째 숨긴다 —
+# 9편이 완결된 편이 10편 중 하나가 빈 것보다 완성도 면에서 낫다.
+# 시드 파일·음성·표지 파일은 모두 보존한다(집합에서 제목만 빼면 즉시 되살아난다).
+EXCLUDED_TITLES: frozenset[str] = frozenset({"혹부리 영감"})
+
+# 표지 그림에서만 제외되는 이야기(현재 없음 — 위 EXCLUDED_TITLES 로 통합).
+COVER_EXCLUDED_TITLES: frozenset[str] = frozenset()
 
 # 표지 이미지 slug — 시드 파일에 없는 제목이면 빈 문자열이 들어가고 이모지 표지로 폴백한다.
 COVER_SLUGS: dict[str, str] = {
@@ -167,6 +172,10 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
         title = entry.get("TITLE", "")
         if not title:
             raise ValueError(f"[STORY_{number}] 에 TITLE 이 없다: {SEED_FILE}")
+
+        # 표지 결함 등으로 보류된 이야기는 서가에 올리지 않는다(파일은 보존).
+        if title in EXCLUDED_TITLES:
+            continue
 
         keywords = [kw.strip() for kw in entry.get("KEYWORD", "").split(",") if kw.strip()]
         stories.append(

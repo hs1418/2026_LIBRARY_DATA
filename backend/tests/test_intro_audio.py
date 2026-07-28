@@ -16,7 +16,14 @@ from pathlib import Path
 from httpx import AsyncClient
 
 from app import seed as seed_module
-from app.seed import AUDIO_DIR, STORY_SLUGS, audio_path, parse_seed_file, story_slug
+from app.seed import (
+    AUDIO_DIR,
+    EXCLUDED_TITLES,
+    STORY_SLUGS,
+    audio_path,
+    parse_seed_file,
+    story_slug,
+)
 
 # 앱 코드(app/)는 edge-tts 를 import 하지 않는다 — 런타임 TTS 호출 금지의 회귀 방지 대상.
 APP_DIR = Path(seed_module.__file__).resolve().parent
@@ -30,11 +37,13 @@ def _is_mp3(data: bytes) -> bool:
 
 
 # ── (a) 자산 ────────────────────────────────────────────────────────────────
-def test_all_ten_stories_have_intro_audio_files():
-    titles = [story["title"] for story in parse_seed_file()]
-    assert len(titles) == 10
+def test_all_story_slugs_have_intro_audio_files():
+    """음성은 서가에서 제외된 이야기까지 STORY_SLUGS 전부에 대해 만들어 둔다.
 
-    for title in titles:
+    표지 결함으로 보류된 이야기가 되살아날 때 음성을 다시 생성하지 않아도 되게,
+    자산은 제외 여부와 무관하게 유지한다.
+    """
+    for title in STORY_SLUGS:
         slug = story_slug(title)
         assert slug, f"STORY_SLUGS 에 slug 가 없다: {title}"
         path = AUDIO_DIR / f"{slug}.mp3"
@@ -110,14 +119,14 @@ def test_seed_parser_still_builds_story_rows_with_audio_field():
     from app.models import Story
 
     stories = [Story(**data) for data in parse_seed_file()]
-    assert len(stories) == 10
+    assert len(stories) == len(STORY_SLUGS) - len(EXCLUDED_TITLES)
     assert any(story.intro_audio for story in stories)
 
 
 # ── (c) API ─────────────────────────────────────────────────────────────────
 async def test_story_detail_includes_intro_audio(full_client: AsyncClient):
     stories = (await full_client.get("/api/stories")).json()
-    assert len(stories) == 10
+    assert len(stories) == len(STORY_SLUGS) - len(EXCLUDED_TITLES)
 
     with_audio = 0
     for card in stories:
@@ -130,7 +139,7 @@ async def test_story_detail_includes_intro_audio(full_client: AsyncClient):
             assert detail["intro_audio"].startswith("/static/audio/")
             assert detail["intro_audio"].endswith(".mp3")
     # 10편 전부 음성이 붙어 있어야 한다(자산 누락 회귀 방지).
-    assert with_audio == 10
+    assert with_audio == len(stories)  # 활성 이야기 전부 음성 보유
 
 
 async def test_story_list_omits_intro_audio(full_client: AsyncClient):

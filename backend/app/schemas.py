@@ -35,6 +35,8 @@ class StoryDetail(BaseModel):
     keyword: str
     intro_summary: str
     intro_image: str
+    # 서가 목록과 같은 값 — 상세만 조회하는 클라이언트도 표지를 알 수 있게 함께 준다.
+    cover_image: str = ""
     # 도입부 요약 음성 URL. 빈 문자열이면 프론트가 재생 버튼을 숨긴다.
     # 서가 목록(StoryCard)에는 넣지 않는다 — 상세 화면에서만 재생한다.
     intro_audio: str = ""
