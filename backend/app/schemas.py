@@ -49,6 +49,8 @@ class StoryDetail(BaseModel):
     emoji: str
     keyword: str
     intro_summary: str
+    # 아이에게 던지는 질문(이야기별). 비면 프론트가 기본 문구를 쓴다.
+    question: str = ""
     intro_image: str
     # 서가 목록과 같은 값 — 상세만 조회하는 클라이언트도 표지를 알 수 있게 함께 준다.
     cover_image: str = ""

@@ -4,7 +4,7 @@
 파싱해 Story 행으로 옮기기만 한다 — AI팀이 파일만 고치면 재시딩으로 그대로 반영된다.
 
 시드 파일 문법:
-    [STORY_n]      TITLE / EMOJI / KEYWORD / INTRO_SUMMARY 필드 + INTRO_PAGE_n 0줄 이상
+    [STORY_n]      TITLE / EMOJI / KEYWORD / INTRO_SUMMARY / QUESTION 필드 + INTRO_PAGE_n 0줄 이상
     [RECOMMEND_n]  "번호. 제목 | 저자 | 출판사 | 청구기호" 5줄
     '#' 로 시작하는 줄과 빈 줄은 주석/구분선이라 무시한다.
 
@@ -91,7 +91,7 @@ BIBLIOGRAPHIES: dict[str, dict] = {
 }
 
 _SECTION_RE = re.compile(r"^\[(STORY|RECOMMEND)_(\d+)\]$")
-_FIELD_RE = re.compile(r"^(TITLE|EMOJI|KEYWORD|INTRO_SUMMARY)\s*:\s*(.*)$")
+_FIELD_RE = re.compile(r"^(TITLE|EMOJI|KEYWORD|INTRO_SUMMARY|QUESTION)\s*:\s*(.*)$")
 _INTRO_PAGE_RE = re.compile(r"^INTRO_PAGE_(\d+)\s*:\s*(.*)$")
 _BOOK_RE = re.compile(r"^\d+\.\s*(.+)$")
 
@@ -245,6 +245,7 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
                 # 서가 카드에 찍히는 대표 키워드는 첫 번째 것.
                 "keyword": keywords[0] if keywords else "",
                 "intro_summary": entry.get("INTRO_SUMMARY", ""),
+                "question": entry.get("QUESTION", ""),
                 "intro_image": INTRO_IMAGES.get(title, ""),
                 "intro_audio": audio_path(title),
                 # INTRO_PAGE_n 이 없는 이야기는 빈 배열 → 프론트가 요약 카드로 폴백한다.

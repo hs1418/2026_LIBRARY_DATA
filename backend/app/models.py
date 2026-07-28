@@ -41,6 +41,10 @@ class Story(Base):
     )
 
 
+    # 아이에게 던지는 질문. 이야기마다 "무엇을 상상할지"가 달라 시드에서 받는다
+    # (콩쥐팥쥐: 물독을 어떻게 채울까). 비면 프론트가 기본 문구를 쓴다.
+    question: Mapped[str] = mapped_column(sa.String(200), default="", nullable=False)
+
     @property
     def locked(self) -> bool:
         """원작 전문(intro_pages)이 없는 이야기는 서가에서 잠근다.

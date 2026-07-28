@@ -43,8 +43,14 @@ def test_parser_reads_six_intro_pages_for_kongjwi():
         assert set(page) == {"no", "text", "image", "audio"}
 
     # 첫 쪽과 마지막 쪽(결말)이 시드 문장 그대로 실린다 — 요약이 아니라 전문이다.
-    assert pages[0]["text"].startswith("콩쥐는 새어머니와 팥쥐랑 살았어요.")
-    assert "행복하게 살았답니다" in pages[-1]["text"]
+    # 본문 문구는 팀 논의로 바뀔 수 있으므로 특정 문장을 박지 않는다. 대신 이번 결정의
+    # 핵심을 지킨다 — 원작은 "물독이 새는 것을 발견"까지만 보여주고 해결책(두꺼비)은
+    # 감춘다. 아이가 답을 알면 그대로 따라가 상상할 여지가 사라진다.
+    body = " ".join(page["text"] for page in pages)
+    assert "두꺼비" not in body, "해결책이 노출되면 아이가 상상할 여지가 사라진다"
+    assert "물독" in body, "물독 문제가 제시되어야 아이가 해결법을 상상할 수 있다"
+    # 결말은 담지 않는다 — 마지막 쪽이 문제 제기에서 끊겨야 "어떻게 할까?"가 성립한다.
+    assert "행복하게 살았" not in body, "결말이 들어가면 아이가 바꿀 여지가 없다"
 
 
 def test_intro_pages_do_not_leak_into_plain_fields():

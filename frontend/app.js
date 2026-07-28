@@ -710,6 +710,13 @@ async function selectStory(id) {
         el.storyTitle.textContent = detail.title || '';
         el.introSummary.textContent = detail.intro_summary || '';
         showIntroImage(detail.intro_image);
+        // 이야기마다 무엇을 상상할지가 다르다(콩쥐팥쥐: 물독을 어떻게 채울까).
+        // 시드에 질문이 없으면 기본 문구를 그대로 둔다.
+        if (detail.question) {
+            el.askQuestion.textContent = detail.question;
+        } else {
+            el.askQuestion.textContent = '이 뒤에는 어떤 일이 일어났을까요?';
+        }
         showIntroAudio(detail.intro_audio);
         showBookViewer(detail.intro_pages);
     } catch (err) {
@@ -1032,6 +1039,7 @@ function init() {
         storyTitle: document.getElementById('storyTitle'),
         introSummary: document.getElementById('introSummary'),
         lockToast: document.getElementById('lockToast'),
+        askQuestion: document.getElementById('askQuestion'),
         introImageWrap: document.getElementById('introImageWrap'),
         introImage: document.getElementById('introImage'),
         introAudioBtn: document.getElementById('introAudioBtn'),

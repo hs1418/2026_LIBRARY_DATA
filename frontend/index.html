@@ -132,12 +132,12 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;
             backdrop-filter: saturate(0.6);
         }
-        /* 자물쇠는 배경에 묻히는 톤으로. 튀면 잠금 자체가 주인공이 된다. */
+        /* 자물쇠는 또렷하게 — 회색 카드 위에서 잠겼다는 신호가 바로 읽혀야 한다. */
         .book-lock-icon {
-            font-size: 22px; width: 42px; height: 42px; border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.55);
+            font-size: 26px; width: 46px; height: 46px; border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.92);
             display: flex; justify-content: center; align-items: center;
-            filter: grayscale(1); opacity: 0.75;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
         }
         @keyframes cardShake {
             0%, 100% { transform: translateX(0); }
@@ -475,7 +475,7 @@
     <div id="screen4" class="screen">
         <div class="header">
             <span class="back-icon" id="backToScreen3">←</span>
-            <h1>이 뒤에는 어떤 일이<br>일어났을까요?</h1>
+            <h1 id="askQuestion">이 뒤에는 어떤 일이<br>일어났을까요?</h1>
             <p>마이크를 누르고 상상력을 들려주세요!</p>
         </div>
         <div class="content">
