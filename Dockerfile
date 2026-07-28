@@ -23,6 +23,9 @@ RUN python -m playwright install --with-deps chromium
 
 COPY backend/ backend/
 COPY frontend/ frontend/
+# 시드 데이터(전래동화 10선)의 진실 소스는 AI/data/ 다 — app/seed.py 가 런타임에 읽는다.
+# 이 COPY 가 빠지면 배포본이 시딩에 실패해 서가가 비거나 옛 데이터로 돌아간다(실제 발생).
+COPY AI/data/ AI/data/
 
 WORKDIR /app/backend
 

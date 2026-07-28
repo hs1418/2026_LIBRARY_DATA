@@ -10,7 +10,10 @@ start 커맨드에서 uvicorn 앞에 한 번 실행한다:
 """
 import asyncio
 
-from app.db import Base, engine
+from sqlalchemy import select
+
+from app.db import Base, SessionLocal, engine
+from app.models import Story
 from app.seed import seed
 
 
@@ -18,6 +21,13 @@ async def main() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await seed()  # 이미 있으면 건너뛴다(멱등)
+
+    # 시딩 결과를 로그로 확인 가능하게 남긴다. 배포본이 옛 데이터로 돌던 사고가
+    # "서가에 1편만 보인다"로만 드러나 원인 파악이 늦었다(Dockerfile 이 AI/data 를
+    # 복사하지 않아 시드 파일이 이미지에 없었다).
+    async with SessionLocal() as db:
+        titles = (await db.execute(select(Story.title).order_by(Story.id))).scalars().all()
+    print(f"부트스트랩 완료: {len(titles)}편 — {', '.join(titles)}")
 
 
 if __name__ == "__main__":
