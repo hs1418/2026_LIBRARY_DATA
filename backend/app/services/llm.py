@@ -21,6 +21,9 @@ from groq import AsyncGroq, GroqError
 
 from app.config import settings
 
+# 생성 텍스트에 한자가 섞이면 재시도한다(_normalize 참조). CJK 통합 한자 영역.
+_HANJA = re.compile(r"[一-鿿]")
+
 LLM_TIMEOUT = 15.0
 LLM_MAX_ATTEMPTS = 2  # 최초 1회 + 재시도 1회
 
@@ -119,6 +122,19 @@ def _normalize(data: dict) -> tuple[list[dict], list[str]]:
             }
         )
     keywords = [str(k) for k in raw_keywords]
+
+    # 한자 혼입 차단. 70B 모델이 간헐적으로 한국어 문장에 한자를 섞는다(실제 인쇄
+    # 미리보기에서 발견). 주 사용자가 아동이라 읽히지 않고, 인쇄물에 박히면 되돌릴
+    # 수 없다. 프롬프트로만 막으면 확률적으로 새어나오므로 검증에서 확정적으로 잡고
+    # 재시도 경로(generate_pages)로 넘긴다.
+    for page in pages:
+        for field in ("ko", "en"):
+            if _HANJA.search(page[field]):
+                raise ValueError(f"한자 혼입: {page[field][:40]}")
+    for keyword in keywords:
+        if _HANJA.search(keyword):
+            raise ValueError(f"키워드에 한자 혼입: {keyword}")
+
     return pages, keywords
 
 

@@ -210,3 +210,49 @@ async def test_data4library_empty_result_falls_back(monkeypatch):
             "call_number": "000",
         }
     ]
+
+
+# ── 한자 혼입 차단 ──────────────────────────────────────────────────────────
+def test_normalize_rejects_hanja_in_pages():
+    """70B 모델이 한국어 문장에 한자를 섞는 경우가 있다(실제 인쇄 미리보기에서 발견).
+
+    아동 사용자가 읽지 못하고 인쇄물에 박히면 되돌릴 수 없으므로, 검증에서 잡아
+    재시도 경로로 넘긴다.
+    """
+    data = {
+        "pages": [
+            {"no": 1, "ko": "콩쥐의 마음이 傳해졌어요.", "en": "ok"},
+            {"no": 2, "ko": "좋아요", "en": "ok"},
+            {"no": 3, "ko": "끝", "en": "ok"},
+        ],
+        "keywords": ["콩쥐"],
+    }
+    with pytest.raises(ValueError, match="한자"):
+        llm._normalize(data)
+
+
+def test_normalize_rejects_hanja_in_keywords():
+    data = {
+        "pages": [
+            {"no": 1, "ko": "콩쥐가 웃었어요.", "en": "Kongjwi smiled."},
+            {"no": 2, "ko": "끝", "en": "End"},
+            {"no": 3, "ko": "행복", "en": "Happy"},
+        ],
+        "keywords": ["孝心"],
+    }
+    with pytest.raises(ValueError, match="한자"):
+        llm._normalize(data)
+
+
+def test_normalize_accepts_pure_korean():
+    data = {
+        "pages": [
+            {"no": 1, "ko": "콩쥐가 웃었어요.", "en": "Kongjwi smiled."},
+            {"no": 2, "ko": "두꺼비도 함께 웃었지요.", "en": "The toad smiled too."},
+            {"no": 3, "ko": "모두 행복했답니다.", "en": "Everyone was happy."},
+        ],
+        "keywords": ["콩쥐", "두꺼비"],
+    }
+    pages, keywords = llm._normalize(data)
+    assert len(pages) == 3
+    assert keywords == ["콩쥐", "두꺼비"]

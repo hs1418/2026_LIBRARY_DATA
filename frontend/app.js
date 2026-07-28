@@ -206,12 +206,12 @@ function renderBookGrid(stories) {
 
 async function loadStories() {
     renderBookGridMessage('이야기를 불러오는 중...');
-    el.storyCount.textContent = '전래동화 0 책(冊)';
+    el.storyCount.textContent = '전래동화 0권';
     try {
         const stories = await api.getStories();
         state.stories = Array.isArray(stories) ? stories : [];
         renderBookGrid(state.stories);
-        el.storyCount.textContent = '전래동화 ' + state.stories.length + ' 책(冊)';
+        el.storyCount.textContent = '전래동화 ' + state.stories.length + '권';
     } catch (err) {
         console.error('failed to load stories', err);
         renderBookGridMessage('이야기를 불러오지 못했어요. 다시 시도해 주세요.');
