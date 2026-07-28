@@ -35,6 +35,8 @@ class StoryCard(BaseModel):
     keyword: str
     # 표지 이미지 URL. 빈 문자열이면 프론트가 이모지 카드로 폴백한다.
     cover_image: str = ""
+    # 원작 전문이 준비되지 않은 이야기(Story.locked). 프론트가 잠금 카드로 표시한다.
+    locked: bool = False
 
 
 class StoryDetail(BaseModel):

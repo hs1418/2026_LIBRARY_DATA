@@ -41,6 +41,16 @@ class Story(Base):
     )
 
 
+    @property
+    def locked(self) -> bool:
+        """원작 전문(intro_pages)이 없는 이야기는 서가에서 잠근다.
+
+        준비 안 된 이야기를 열면 요약 두 문장만 나와 미완성으로 읽힌다.
+        삽화·본문이 채워지면 자동으로 열리므로 별도 플래그를 두지 않는다.
+        """
+        return not self.intro_pages
+
+
 class Session(Base):
     __tablename__ = "sessions"
 

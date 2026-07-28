@@ -180,3 +180,31 @@ async def test_page_audio_is_served_as_static_file(full_client: AsyncClient):
     assert resp.content[:3] == b"ID3" or (
         resp.content[0] == 0xFF and (resp.content[1] & 0xE0) == 0xE0
     )
+
+
+# ── 잠금 상태 ────────────────────────────────────────────────────────────────
+def test_story_locked_when_no_intro_pages():
+    """원작 전문이 없는 이야기는 잠긴다.
+
+    열어도 요약 두 문장뿐이라 미완성으로 읽히므로, 서가에서 진입을 막는다.
+    삽화·본문이 채워지면 자동으로 열리도록 파생 프로퍼티로 둔다.
+    """
+    from app.models import Story
+
+    page = {"no": 1, "text": "옛날에", "image": "", "audio": ""}
+    ready = Story(title="준비됨", intro_pages=[page])
+    not_ready = Story(title="준비중", intro_pages=[])
+
+    assert ready.locked is False
+    assert not_ready.locked is True
+
+
+async def test_list_stories_exposes_locked(full_client):
+    resp = await full_client.get("/api/stories")
+    assert resp.status_code == 200
+
+    stories = resp.json()
+    assert all("locked" in s for s in stories)
+
+    unlocked = [s["title"] for s in stories if not s["locked"]]
+    assert unlocked == ["콩쥐팥쥐전"], "원작 전문이 있는 이야기만 열려야 한다"

@@ -202,9 +202,44 @@ function renderBookGrid(stories) {
             renderCardFallback(card, story);
         }
 
-        card.addEventListener('click', () => selectStory(story.id));
+        // 원작 전문이 준비되지 않은 이야기는 잠근다. 열어도 요약 두 문장뿐이라
+        // 미완성으로 읽히므로, 완성된 이야기로만 흐름을 유도한다.
+        if (story.locked) {
+            card.classList.add('locked');
+
+            const lock = document.createElement('div');
+            lock.className = 'book-lock';
+
+            const icon = document.createElement('div');
+            icon.className = 'book-lock-icon';
+            icon.textContent = '🔒';
+
+            lock.appendChild(icon);
+            card.appendChild(lock);
+
+            card.addEventListener('click', () => shakeLockedCard(card, story));
+        } else {
+            card.addEventListener('click', () => selectStory(story.id));
+        }
         el.bookGrid.appendChild(card);
     });
+}
+
+// 잠긴 카드를 누르면 카드가 흔들리고 안내가 잠깐 뜬다. 아무 반응이 없으면
+// 고장으로 보이므로, 눌렀다는 사실은 돌려주되 진행은 막는다.
+let lockToastTimer = null;
+
+function shakeLockedCard(card, story) {
+    card.classList.remove('shake');
+    void card.offsetWidth;  // 애니메이션 재시작을 위한 리플로 강제
+    card.classList.add('shake');
+    card.addEventListener('animationend', () => card.classList.remove('shake'), { once: true });
+
+    const title = story.title || '이 이야기';
+    el.lockToast.textContent = '「' + title + '」은 아직 준비 중이에요. 지금은 콩쥐팥쥐전을 만나보세요!';
+    el.lockToast.classList.add('show');
+    clearTimeout(lockToastTimer);
+    lockToastTimer = setTimeout(() => el.lockToast.classList.remove('show'), 2600);
 }
 
 async function loadStories() {
@@ -996,6 +1031,7 @@ function init() {
         bookGrid: document.getElementById('bookGrid'),
         storyTitle: document.getElementById('storyTitle'),
         introSummary: document.getElementById('introSummary'),
+        lockToast: document.getElementById('lockToast'),
         introImageWrap: document.getElementById('introImageWrap'),
         introImage: document.getElementById('introImage'),
         introAudioBtn: document.getElementById('introAudioBtn'),

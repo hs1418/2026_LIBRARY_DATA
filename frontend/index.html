@@ -119,6 +119,45 @@
         .book-text-wrap { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
         .book-keyword { font-size: 11px; font-weight: 700; color: var(--accent-red); }
         .book-title { font-size: 18px; font-weight: 700; color: var(--text-main); line-height: 1.2; letter-spacing: -0.5px; }
+        /* 준비 안 된 이야기 — 회색 반투명 + 자물쇠. 누르면 흔들리며 안내가 뜬다.
+           심사·시연에서 완성된 이야기만 열리게 해 미완성 화면 노출을 막는다. */
+        .book-card.locked { cursor: default; }
+        .book-card.locked .book-cover,
+        .book-card.locked .book-emoji,
+        .book-card.locked .book-caption,
+        .book-card.locked .book-text-wrap { filter: grayscale(1); opacity: 0.55; }
+        .book-lock {
+            position: absolute; inset: 0; z-index: 3;
+            background-color: rgba(44, 42, 41, 0.28);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;
+            backdrop-filter: saturate(0.6);
+        }
+        /* 자물쇠는 배경에 묻히는 톤으로. 튀면 잠금 자체가 주인공이 된다. */
+        .book-lock-icon {
+            font-size: 22px; width: 42px; height: 42px; border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.55);
+            display: flex; justify-content: center; align-items: center;
+            filter: grayscale(1); opacity: 0.75;
+        }
+        @keyframes cardShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-7px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(2px); }
+        }
+        .book-card.shake { animation: cardShake 0.42s ease-in-out; }
+
+        /* 잠금 안내 — 화면 하단에서 잠깐 떴다 사라진다. */
+        .lock-toast {
+            position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%);
+            background-color: rgba(44, 42, 41, 0.92); color: var(--white);
+            padding: 12px 18px; border-radius: 14px; font-size: 13px; font-weight: 600;
+            line-height: 1.5; text-align: center; max-width: 280px; z-index: 50;
+            opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+        }
+        .lock-toast.show { opacity: 1; }
+
         /* 표지 카드의 캡션 — 그림 아래 한 줄. [카테고리] 제목 순서로 작게. */
         .book-caption {
             padding: 8px 10px 10px; display: flex; align-items: baseline; gap: 5px;
@@ -366,6 +405,7 @@
         <div class="content" style="position: relative; z-index: 2;">
             <div class="book-grid" id="bookGrid"></div>
         </div>
+        <div class="lock-toast" id="lockToast" role="status" aria-live="polite"></div>
     </div>
 
     <!-- 📱 화면 3: 이야기 앞부분 읽기 -->
