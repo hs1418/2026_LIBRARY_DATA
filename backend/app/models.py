@@ -20,6 +20,10 @@ class Story(Base):
     keyword: Mapped[str] = mapped_column(sa.String(100), default="", nullable=False)
     intro_summary: Mapped[str] = mapped_column(sa.Text, default="", nullable=False)
     intro_image: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)
+    # 도입부 요약 음성(/static/audio/{slug}.mp3). 개발 시점에 edge-tts 로 미리 만들어
+    # 커밋하는 정적 자산이라 런타임 TTS 호출은 없다(ADR-0004 — 현장 인터넷/외부 API 가
+    # 재생 실패 지점이 되면 안 된다). 비어 있으면 프론트가 재생 버튼째 숨긴다.
+    intro_audio: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)
     # 디자인팀 표지 이미지(/static/covers/{slug}.jpg). 비어 있으면 이모지 표지로 폴백한다
     # — 파일이 유실돼도 서가·PDF 가 깨지지 않게 하는 안전망.
     cover_image: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)

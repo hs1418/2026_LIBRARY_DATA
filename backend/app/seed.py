@@ -30,21 +30,36 @@ SEED_FILE = (
     Path(__file__).resolve().parent.parent.parent / "AI" / "data" / "fairytale_seeds.txt"
 )
 
-# 표지 이미지 slug — 파일명은 ASCII 로 고정(URL·파일시스템 안전).
-# 시드 파일에 없는 제목이면 표지 없이(빈 문자열) 들어가고 이모지 표지로 폴백한다.
-COVER_SLUGS: dict[str, str] = {
+# 정적 자산 루트(backend/static) — 표지·딱지본 스캔·도입부 음성이 모두 여기 있다.
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+AUDIO_DIR = STATIC_DIR / "audio"
+
+# 제목 → ASCII slug. 파일명은 ASCII 로 고정한다(URL·파일시스템 안전).
+# 표지 이미지와 도입부 음성이 이 매핑 하나를 공유한다 — 자산 종류마다 매핑을 복제하면
+# 한쪽만 고쳐져 파일명이 갈라진다. 자산별 예외는 아래 제외 목록으로만 표현한다.
+STORY_SLUGS: dict[str, str] = {
     "콩쥐팥쥐전": "kongjwi",
     "흥부놀부전": "heungbu",
     "해님달님전": "haenim",
-    # 혹부리 영감 표지는 그림 현판이 "흑부리 영감"으로 잘못 그려져 있다(2026-07-27 확인).
-    # 인쇄물에 오탈자가 박히므로 재생성 전까지 매핑에서 제외 — 이모지 표지로 폴백한다.
-    # "hokburi": "hokburi",
+    "혹부리 영감": "hokburi",
     "금도끼 은도끼": "geumdokki",
     "별주부전": "byeoljubu",
     "은혜 갚는 까치": "kkachi",
     "선녀와 나무꾼": "seonnyeo",
     "심청전": "simcheong",
     "단군신화 (곰과 호랑이)": "dangun",
+}
+
+# 표지 그림에서만 제외되는 이야기. 혹부리 영감 표지는 그림 현판이 "흑부리 영감"으로
+# 잘못 그려져 있다(2026-07-27 확인) — 인쇄물에 오탈자가 박히므로 재생성 전까지 제외하고
+# 이모지 표지로 폴백한다. 음성은 표지 유무와 무관하게 10편 전부 생성·재생한다.
+COVER_EXCLUDED_TITLES: frozenset[str] = frozenset({"혹부리 영감"})
+
+# 표지 이미지 slug — 시드 파일에 없는 제목이면 빈 문자열이 들어가고 이모지 표지로 폴백한다.
+COVER_SLUGS: dict[str, str] = {
+    title: slug
+    for title, slug in STORY_SLUGS.items()
+    if title not in COVER_EXCLUDED_TITLES
 }
 
 # 딱지본 스캔을 확보한 이야기만 화면에 액자를 띄운다(없으면 프론트가 영역째 숨긴다).
@@ -81,10 +96,28 @@ def _parse_book(line: str) -> dict:
     }
 
 
+def story_slug(title: str) -> str:
+    """제목 → ASCII slug. 매핑에 없으면 빈 문자열."""
+    return STORY_SLUGS.get(title, "")
+
+
 def cover_path(title: str) -> str:
     """제목 → 표지 이미지 URL. 매핑에 없으면 빈 문자열(이모지 폴백)."""
     slug = COVER_SLUGS.get(title, "")
     return f"/static/covers/{slug}.jpg" if slug else ""
+
+
+def audio_path(title: str) -> str:
+    """제목 → 도입부 요약 음성 URL. 파일이 실제로 있을 때만 채운다.
+
+    음성은 런타임에 만들지 않고 개발 시점에 미리 생성해 커밋한다
+    (scripts/generate_intro_audio.py). 그래서 시딩 시점에 파일 존재를 확인할 수 있고,
+    없으면 빈 문자열 → 프론트가 재생 버튼째 숨긴다(표지·딱지본 스캔과 같은 폴백 규칙).
+    """
+    slug = story_slug(title)
+    if not slug:
+        return ""
+    return f"/static/audio/{slug}.mp3" if (AUDIO_DIR / f"{slug}.mp3").is_file() else ""
 
 
 def parse_seed_file(path: Path | None = None) -> list[dict]:
@@ -144,6 +177,7 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
                 "keyword": keywords[0] if keywords else "",
                 "intro_summary": entry.get("INTRO_SUMMARY", ""),
                 "intro_image": INTRO_IMAGES.get(title, ""),
+                "intro_audio": audio_path(title),
                 "cover_image": cover_path(title),
                 "bibliography": BIBLIOGRAPHIES.get(title, {}),
                 "fixed_keywords": keywords,

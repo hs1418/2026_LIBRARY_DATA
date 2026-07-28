@@ -105,6 +105,12 @@ let recognition = null;
 /* ------------------------------------------------------------------ */
 
 function goTo(screenId) {
+    // 화면 3을 벗어나는 순간(뒤로 가기·다음 단계·처음으로) 도입부 음성을 멈춘다.
+    // 화면 전환 지점을 한 곳으로 모아 두면 버튼을 추가해도 정지가 새지 않는다 —
+    // 백그라운드에서 성우 목소리가 계속 나오면 워크숍 진행이 방해된다.
+    if (screenId !== 'screen3') {
+        stopIntroAudio();
+    }
     document.querySelectorAll('.screen').forEach((node) => node.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
 }
@@ -228,6 +234,74 @@ function showIntroImage(path) {
     el.introImage.src = path;
 }
 
+/* --- 도입부 음성 --------------------------------------------------- */
+/* mp3 는 사전 생성해 커밋한 정적 자산이다(backend/scripts/generate_intro_audio.py).
+   런타임 TTS 호출은 없으므로 재생 실패 지점은 파일 404 하나뿐 — 그때는 버튼을 숨긴다. */
+
+function setIntroAudioIdle() {
+    el.introAudioBtn.classList.remove('playing');
+    el.introAudioIcon.textContent = '▶';
+    el.introAudioLabel.textContent = '이야기 들려주기';
+}
+
+function setIntroAudioPlaying() {
+    el.introAudioBtn.classList.add('playing');
+    el.introAudioIcon.textContent = '❚❚';
+    el.introAudioLabel.textContent = '들려주는 중... (누르면 멈춰요)';
+}
+
+function stopIntroAudio() {
+    if (!el.introAudio) {
+        return;
+    }
+    el.introAudio.pause();
+    el.introAudio.currentTime = 0;
+    setIntroAudioIdle();
+}
+
+// 음성이 없는 이야기(경로 없음 또는 404)는 버튼째 숨긴다 — 표지·딱지본 스캔과 같은
+// 폴백 규칙이다. 요약 텍스트만으로도 화면은 성립한다.
+function showIntroAudio(path) {
+    stopIntroAudio();
+    if (!path) {
+        el.introAudioBtn.style.display = 'none';
+        el.introAudio.removeAttribute('src');
+        return;
+    }
+    el.introAudio.src = path;
+    el.introAudioBtn.style.display = 'flex';
+}
+
+function toggleIntroAudio() {
+    if (el.introAudio.paused) {
+        // autoplay 금지 — 이 클릭이 유일한 재생 시작점이다(진행자가 눌러 시작).
+        const playing = el.introAudio.play();
+        if (playing && typeof playing.catch === 'function') {
+            playing.catch((err) => {
+                console.error('intro audio play failed', err);
+                setIntroAudioIdle();
+            });
+        }
+    } else {
+        el.introAudio.pause();
+    }
+}
+
+function initIntroAudio() {
+    el.introAudioBtn.addEventListener('click', toggleIntroAudio);
+    // 상태 표시는 audio 이벤트에만 의존한다 — 버튼 클릭 시점에 미리 바꾸면
+    // 재생이 실패했을 때 "듣는 중"으로 굳는다.
+    el.introAudio.addEventListener('play', setIntroAudioPlaying);
+    el.introAudio.addEventListener('pause', setIntroAudioIdle);
+    el.introAudio.addEventListener('ended', setIntroAudioIdle);
+    el.introAudio.addEventListener('error', () => {
+        if (el.introAudio.getAttribute('src')) {
+            console.error('intro audio load failed', el.introAudio.getAttribute('src'));
+            el.introAudioBtn.style.display = 'none';
+        }
+    });
+}
+
 async function selectStory(id) {
     try {
         const detail = await api.getStory(id);
@@ -235,12 +309,14 @@ async function selectStory(id) {
         el.storyTitle.textContent = detail.title || '';
         el.introSummary.textContent = detail.intro_summary || '';
         showIntroImage(detail.intro_image);
+        showIntroAudio(detail.intro_audio);
     } catch (err) {
         console.error('failed to load story detail', err);
         state.currentStory = { id: id, title: '' };
         el.storyTitle.textContent = '-';
         el.introSummary.textContent = '이야기를 불러오지 못했어요. 다시 시도해 주세요.';
         showIntroImage(null);
+        showIntroAudio(null);
     }
     goTo('screen3');
 }
@@ -554,6 +630,10 @@ function init() {
         introSummary: document.getElementById('introSummary'),
         introImageWrap: document.getElementById('introImageWrap'),
         introImage: document.getElementById('introImage'),
+        introAudioBtn: document.getElementById('introAudioBtn'),
+        introAudioIcon: document.getElementById('introAudioIcon'),
+        introAudioLabel: document.getElementById('introAudioLabel'),
+        introAudio: document.getElementById('introAudio'),
         goScreen4Btn: document.getElementById('goScreen4Btn'),
         micBtn: document.getElementById('micBtn'),
         micUnsupportedNote: document.getElementById('micUnsupportedNote'),
@@ -606,6 +686,7 @@ function init() {
 
     el.goHomeBtn.addEventListener('click', goHome);
 
+    initIntroAudio();
     initSpeechRecognition();
     updateAiButtonState();
 }
