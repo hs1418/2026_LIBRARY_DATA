@@ -33,3 +33,7 @@ backend/*.png
 # 디자인팀 표지 원본 PNG(장당 ~9MB, 총 ~83MB) — 리사이즈본만 커밋한다.
 # 변환 규칙: 폭 1200px + JPEG q88 → backend/static/covers/{slug}.jpg
 Gemini_Generated_Image_*.png
+
+# 디자인팀 삽화 원본(스크린샷 캡처본) — 리사이즈본만 커밋한다.
+# 변환 규칙: 폭 1000px + JPEG q88 → backend/static/story/{slug}/p{n}.jpg
+2026-*.png
