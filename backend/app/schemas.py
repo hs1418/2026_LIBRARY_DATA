@@ -10,6 +10,19 @@ class Page(BaseModel):
     en: str
 
 
+class IntroPage(BaseModel):
+    """북뷰어 한 쪽 — 원작 전문을 그림책처럼 넘겨 보게 하는 단위.
+
+    image/audio 는 파일이 실제로 있을 때만 채워진다. 빈 문자열이면 프론트가 각각
+    플레이스홀더 그림 / 글자 수 기반 타이머로 폴백한다.
+    """
+
+    no: int
+    text: str
+    image: str = ""
+    audio: str = ""
+
+
 # --- Story ---
 class StoryCard(BaseModel):
     """서가 목록 카드 — GET /api/stories."""
@@ -40,6 +53,9 @@ class StoryDetail(BaseModel):
     # 도입부 요약 음성 URL. 빈 문자열이면 프론트가 재생 버튼을 숨긴다.
     # 서가 목록(StoryCard)에는 넣지 않는다 — 상세 화면에서만 재생한다.
     intro_audio: str = ""
+    # 북뷰어용 원작 전문. 빈 배열이면 프론트가 intro_summary 카드로 폴백한다.
+    # intro_audio 와 같은 이유로 목록(StoryCard)에는 싣지 않는다 — 서가에서는 읽지 않는다.
+    intro_pages: list[IntroPage] = []
     bibliography: dict
 
 

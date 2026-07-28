@@ -250,6 +250,89 @@
             transition: background-color 0.2s;
         }
         .btn-receipt-print:active { background-color: #000; }
+
+        /* 📖 북뷰어 (화면 3) — 원작 전문을 그림책처럼 넘겨 본다.
+           위쪽 그림 / 아래쪽 글은 제본 PDF 한 쪽의 구성과 같다(아이가 같은 형식을
+           두 번 만나게 해서 "내 책도 이렇게 생긴다"가 바로 이해되게 함). */
+        .book-viewer { display: flex; flex-direction: column; padding-bottom: 176px; }
+
+        /* 넘김 애니메이션의 단위 — 그림과 글이 한 장으로 같이 움직인다. */
+        .book-sheet { display: flex; flex-direction: column; gap: 16px; }
+        @keyframes sheetInNext {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes sheetInPrev {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        /* 가로 슬라이드 + 페이드. 3D 플립은 아동용 화면에서 과하고 어지럽다. */
+        .book-sheet.turn-next { animation: sheetInNext 0.34s ease-out; }
+        .book-sheet.turn-prev { animation: sheetInPrev 0.34s ease-out; }
+
+        .book-illust {
+            position: relative; width: 100%; aspect-ratio: 4 / 3;
+            border-radius: 20px; overflow: hidden; box-shadow: var(--toss-shadow);
+            background-color: var(--celadon-light);
+        }
+        .book-illust-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+        /* 삽화가 아직 없는 쪽의 자리 — 은은한 청자색 바탕 + 작은 안내 문구.
+           빈 흰 박스를 두면 로딩 실패로 보이고, 강한 색을 쓰면 글보다 눈에 띈다. */
+        .book-illust-ph {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;
+            background: linear-gradient(160deg, var(--celadon-light), #F2F6F4 70%, var(--white));
+        }
+        .book-illust-ph::before {
+            content: ''; position: absolute; inset: 14px;
+            border: 1.5px dashed rgba(74, 124, 104, 0.22); border-radius: 14px;
+        }
+        .book-illust-ph-mark { font-size: 26px; opacity: 0.5; }
+        .book-illust-ph-text { font-size: 12px; font-weight: 600; color: var(--text-sub); letter-spacing: -0.2px; }
+        .book-illust.has-image .book-illust-img { display: block; }
+        .book-illust.has-image .book-illust-ph { display: none; }
+
+        /* 본문 — 아동이 읽는 글이라 크게·행간 넉넉히. */
+        .book-text {
+            margin: 0; background-color: var(--white); border-radius: 20px; padding: 20px;
+            font-size: 17px; line-height: 1.75; font-weight: 500; letter-spacing: -0.3px;
+            box-shadow: var(--toss-shadow); border: 1px solid rgba(0,0,0,0.02);
+        }
+
+        .book-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+        .book-indicator { font-size: 13px; font-weight: 700; color: var(--primary-celadon); letter-spacing: 0.5px; }
+        .book-mute {
+            border: 1px solid var(--border); background-color: var(--white); border-radius: 12px;
+            width: 40px; height: 34px; font-size: 15px; cursor: pointer; line-height: 1;
+            color: var(--primary-celadon); box-shadow: var(--card-shadow);
+        }
+        .book-mute.muted { color: var(--text-sub); background-color: var(--bg-gray); }
+
+        /* 하단 조작부 — 진행자가 통제한다. 아이도 누르므로 터치 타깃을 크게. */
+        .book-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .book-nav {
+            flex: 0 0 56px; height: 56px; border-radius: 16px; border: 1px solid var(--border);
+            background-color: var(--white); color: var(--primary-celadon); font-size: 16px;
+            cursor: pointer; box-shadow: var(--card-shadow);
+        }
+        .book-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+        .book-play {
+            flex: 1; min-height: 56px; border: none; border-radius: 16px;
+            background-color: var(--primary-celadon); color: var(--white);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 17px; font-weight: 600; font-family: inherit; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(74, 124, 104, 0.2);
+        }
+        .book-skip {
+            width: 100%; border: none; background: none; font-family: inherit; cursor: pointer;
+            padding: 12px; font-size: 15px; font-weight: 600; color: var(--text-sub);
+        }
+        /* 마지막 쪽에서는 스킵이 아니라 다음 단계로 가는 주 버튼이 된다. */
+        .book-skip.is-finish {
+            background-color: var(--accent-orange); color: var(--white);
+            border-radius: 16px; padding: 18px; font-size: 17px;
+            box-shadow: 0 4px 12px rgba(217, 140, 74, 0.25);
+        }
     </style>
 </head>
 <body>
@@ -292,7 +375,27 @@
             <h1 id="storyTitle">-</h1>
             <p>100년 전 옛이야기</p>
         </div>
-        <div class="content" style="padding-bottom: 120px;">
+        <!-- 📖 북뷰어 — intro_pages 가 있는 이야기(원작 전문을 그림책처럼 넘겨 본다).
+             페이지가 없는 이야기는 app.js 가 이 영역을 숨기고 아래 요약 카드로 폴백한다. -->
+        <div class="content book-viewer" id="bookViewer" style="display: none;">
+            <div class="book-sheet" id="bookSheet">
+                <div class="book-illust" id="bookIllust">
+                    <img class="book-illust-img" id="bookIllustImg" alt="">
+                    <div class="book-illust-ph">
+                        <span class="book-illust-ph-mark">🖌️</span>
+                        <span class="book-illust-ph-text">그림은 곧 들어올 거예요</span>
+                    </div>
+                </div>
+                <p class="book-text" id="bookText"></p>
+            </div>
+            <div class="book-meta">
+                <span class="book-indicator" id="bookIndicator">-</span>
+                <button class="book-mute" id="bookMuteBtn" type="button" aria-label="넘기는 소리 끄기">🔔</button>
+            </div>
+        </div>
+
+        <!-- 폴백: 원작 전문이 없는 이야기 — 기존 딱지본 스캔 + 요약 카드 그대로. -->
+        <div class="content" id="introFallback" style="padding-bottom: 120px;">
             <!-- 딱지본 원본 스캔. 파일이 없으면 app.js 가 통째로 숨긴다. -->
             <div id="introImageWrap" style="background-color: var(--white); border: 1px solid var(--border); border-radius: 16px; width: 320px; height: 360px; margin: 0 auto 24px auto; box-shadow: var(--toss-shadow); overflow: hidden; display: none;">
                 <img id="introImage" alt="원작 딱지본" style="width: 100%; height: 100%; object-fit: contain;">
@@ -308,7 +411,22 @@
 
             <div class="card" id="introSummary" style="font-size: 16px; line-height: 1.6; margin-bottom: 0;"></div>
         </div>
-        <div class="btn-bottom-wrap">
+
+        <!-- 북뷰어 조작부. 페이지 음성은 이 화면 전용 audio 엘리먼트로 재생한다
+             (요약 음성과 섞으면 한쪽을 멈춰도 다른 쪽이 계속 나온다). -->
+        <div class="btn-bottom-wrap" id="bookViewerBottom" style="display: none;">
+            <div class="book-controls">
+                <button class="book-nav" id="bookPrevBtn" type="button" aria-label="이전 쪽">◀</button>
+                <button class="book-play" id="bookPlayBtn" type="button">
+                    <span id="bookPlayIcon">▶</span><span id="bookPlayLabel">이야기 시작</span>
+                </button>
+                <button class="book-nav" id="bookNextBtn" type="button" aria-label="다음 쪽">▶</button>
+            </div>
+            <button class="book-skip" id="bookSkipBtn" type="button">그냥 넘어갈래요</button>
+        </div>
+        <audio id="bookAudio" preload="auto"></audio>
+
+        <div class="btn-bottom-wrap" id="introFallbackBottom">
             <button class="btn-primary" id="goScreen4Btn">다음 이야기 상상하기</button>
         </div>
     </div>

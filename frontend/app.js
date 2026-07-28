@@ -105,11 +105,14 @@ let recognition = null;
 /* ------------------------------------------------------------------ */
 
 function goTo(screenId) {
-    // 화면 3을 벗어나는 순간(뒤로 가기·다음 단계·처음으로) 도입부 음성을 멈춘다.
+    // 화면 3을 벗어나는 순간(뒤로 가기·다음 단계·처음으로) 도입부 음성과 북뷰어를 멈춘다.
     // 화면 전환 지점을 한 곳으로 모아 두면 버튼을 추가해도 정지가 새지 않는다 —
     // 백그라운드에서 성우 목소리가 계속 나오면 워크숍 진행이 방해된다.
+    // 북뷰어는 소리뿐 아니라 자동 넘김 타이머까지 정리해야 한다. 타이머가 살아 있으면
+    // 다른 화면에 있는 동안 페이지가 혼자 넘어가고, 돌아왔을 때 엉뚱한 쪽이 펼쳐진다.
     if (screenId !== 'screen3') {
         stopIntroAudio();
+        stopBookViewer();
     }
     document.querySelectorAll('.screen').forEach((node) => node.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -302,6 +305,369 @@ function initIntroAudio() {
     });
 }
 
+/* ------------------------------------------------------------------ */
+/* 화면 3: 북뷰어 — 원작 전문을 그림책처럼 넘겨 본다                    */
+/* ------------------------------------------------------------------ */
+/* 아이가 원작을 끝까지 알아야 "두꺼비 대신 호랑이가 왔으면" 같은 변형을 말할 수 있다.
+   intro_pages 가 없는 이야기는 기존 요약 카드로 폴백한다(표지·음성과 같은 폴백 철학). */
+
+// ended 후 다음 쪽까지의 여유. 그림을 한 박자 더 보고 넘어가게 하는 간격이라
+// 음성이 없는 쪽(글자 수 타이머)에도 똑같이 붙인다.
+const PAGE_GAP_MS = 1500;
+// 음성이 없을 때의 낭독 시간 추정 — 성우 톤(rate -20%) 기준 대략 초당 6자.
+const CHARS_PER_SEC = 6;
+const MIN_READ_MS = 4000;
+
+const book = {
+    pages: [],
+    index: 0,
+    playing: false,   // 자동 진행 중인가
+    timer: null,      // 다음 쪽 예약(setTimeout) — 화면을 벗어날 때 반드시 정리한다
+    muted: false,
+    audioCtx: null,
+    // 방금 일어난 pause 가 우리 코드가 부른 것인지 표시한다. 브라우저·OS 가 대신 멈춘
+    // 경우(태블릿 화면 잠금, 탭 백그라운드)만 일시정지로 승격시키기 위해 필요하다 —
+    // 자동 넘김 중 쪽을 바꿀 때도 pause() 를 부르므로 둘을 구분하지 않으면 진행이 끊긴다.
+    selfPause: false
+};
+
+/* --- 넘김 소리: Web Audio 합성 ------------------------------------- */
+/* 외부 음원 파일은 공모전 제출물의 라이선스 문제가 되므로 쓰지 않는다.
+   짧은 노이즈 버스트에 빠른 어택 + 완만한 감쇠 엔벨로프를 걸고 밴드패스로 다듬어
+   종이 스치는 소리를 흉내 낸다. */
+
+function ensureAudioCtx() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+        return null;
+    }
+    if (!book.audioCtx) {
+        book.audioCtx = new Ctor();
+    }
+    // 사용자 제스처 이전에 만들어진 컨텍스트는 suspended 로 시작한다.
+    if (book.audioCtx.state === 'suspended') {
+        book.audioCtx.resume().catch(() => { /* 재생만 못 할 뿐 진행은 막지 않는다 */ });
+    }
+    return book.audioCtx;
+}
+
+function playPageTurnSound() {
+    if (book.muted) {
+        return;
+    }
+    const ctx = ensureAudioCtx();
+    if (!ctx) {
+        return;
+    }
+    const duration = 0.16;
+    const frames = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) {
+        const t = i / frames;
+        // 어택 2ms 남짓(t * 40) + 지수적 감쇠 — 딱 한 번 '사악' 스치는 모양.
+        const envelope = Math.min(1, t * 40) * Math.pow(1 - t, 2.5);
+        data[i] = (Math.random() * 2 - 1) * envelope;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    // 저역(웅웅거림)과 초고역(치찰음)을 깎아 종이 질감 대역만 남긴다.
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 2600;
+    filter.Q.value = 0.6;
+
+    // 성우 음성을 덮지 않도록 아주 낮게. 넘김 소리는 신호일 뿐 주인공이 아니다.
+    const gain = ctx.createGain();
+    gain.gain.value = 0.05;
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+}
+
+function toggleBookMute() {
+    book.muted = !book.muted;
+    el.bookMuteBtn.classList.toggle('muted', book.muted);
+    el.bookMuteBtn.textContent = book.muted ? '🔕' : '🔔';
+    el.bookMuteBtn.setAttribute('aria-label', book.muted ? '넘기는 소리 켜기' : '넘기는 소리 끄기');
+}
+
+/* --- 자동 진행 ------------------------------------------------------ */
+
+function readDurationMs(text) {
+    const chars = (text || '').length;
+    return Math.max(MIN_READ_MS, Math.round((chars / CHARS_PER_SEC) * 1000));
+}
+
+// 타이머 해제는 이 함수 하나로만 한다 — 해제 지점이 흩어지면 반드시 하나가 샌다.
+function clearBookTimer() {
+    if (book.timer !== null) {
+        clearTimeout(book.timer);
+        book.timer = null;
+    }
+}
+
+function isLastPage() {
+    return book.index >= book.pages.length - 1;
+}
+
+function setBookPlayButton() {
+    el.bookPlayIcon.textContent = book.playing ? '❚❚' : '▶';
+    if (book.playing) {
+        el.bookPlayLabel.textContent = '잠깐 멈추기';
+        return;
+    }
+    // 첫 쪽 도중에 멈춘 경우까지 "시작"이라고 쓰면 처음부터 다시 읽는 것처럼 보인다.
+    // 실제로는 멈춘 자리에서 이어 재생하므로 재생 진척이 있으면 "이어서"로 쓴다.
+    const started = book.index > 0 || (el.bookAudio.getAttribute('src') && el.bookAudio.currentTime > 0);
+    el.bookPlayLabel.textContent = started ? '이어서 듣기' : '이야기 시작';
+}
+
+function setBookSkipButton() {
+    // 마지막 쪽에서는 "건너뛰기"가 아니라 다음 단계로 가는 주 버튼이 된다.
+    const finished = isLastPage();
+    el.bookSkipBtn.classList.toggle('is-finish', finished);
+    el.bookSkipBtn.textContent = finished ? '이제 내가 바꿔볼래!' : '그냥 넘어갈래요';
+}
+
+function updateBookControls() {
+    el.bookIndicator.textContent = (book.index + 1) + ' / ' + book.pages.length;
+    el.bookPrevBtn.disabled = book.index === 0;
+    el.bookNextBtn.disabled = isLastPage();
+    setBookPlayButton();
+    setBookSkipButton();
+}
+
+// 우리 코드가 부르는 pause. 아래 'pause' 핸들러가 이 정지를 외부 중단으로 오인하지
+// 않도록 표시해 둔다. 이미 멈춘 상태면 이벤트가 나지 않으므로 표시하지 않는다.
+function pauseAudioFromCode() {
+    if (!el.bookAudio.paused) {
+        book.selfPause = true;
+    }
+    el.bookAudio.pause();
+}
+
+// 페이지 음성을 원점으로 돌린다. 쪽을 옮길 때마다 불러 이전 쪽 음성이 남지 않게 한다.
+function resetPageAudio() {
+    pauseAudioFromCode();
+    el.bookAudio.removeAttribute('src');
+    el.bookAudio.load();
+}
+
+function renderBookPage(direction) {
+    const page = book.pages[book.index];
+    if (!page) {
+        return;
+    }
+    el.bookText.textContent = page.text || '';
+
+    // 삽화가 아직 없는 쪽(경로 빈 문자열)이나 404 는 플레이스홀더로 채운다.
+    // 파일이 들어오면 시딩이 경로를 채우고 그대로 표시된다 — 프론트 수정은 필요 없다.
+    el.bookIllust.classList.remove('has-image');
+    if (page.image) {
+        el.bookIllustImg.onload = () => { el.bookIllust.classList.add('has-image'); };
+        el.bookIllustImg.onerror = () => { el.bookIllust.classList.remove('has-image'); };
+        el.bookIllustImg.src = page.image;
+    } else {
+        el.bookIllustImg.removeAttribute('src');
+    }
+
+    // 애니메이션 클래스를 뗐다가 리플로우를 강제한 뒤 다시 붙여야 같은 방향으로
+    // 연속해서 넘길 때도 매번 재생된다.
+    el.bookSheet.classList.remove('turn-next', 'turn-prev');
+    void el.bookSheet.offsetWidth;
+    el.bookSheet.classList.add(direction === 'prev' ? 'turn-prev' : 'turn-next');
+
+    updateBookControls();
+}
+
+function gotoPage(index, direction) {
+    if (index < 0 || index >= book.pages.length) {
+        return;
+    }
+    clearBookTimer();
+    resetPageAudio();
+    book.index = index;
+    renderBookPage(direction);
+    playPageTurnSound();
+}
+
+function scheduleNextPage(delayMs) {
+    clearBookTimer();
+    book.timer = setTimeout(() => {
+        book.timer = null;
+        if (!book.playing) {
+            return;
+        }
+        if (isLastPage()) {
+            // 마지막 쪽을 다 읽으면 자동 진행을 끝낸다(첫 쪽으로 되돌아가지 않는다).
+            book.playing = false;
+            updateBookControls();
+            return;
+        }
+        gotoPage(book.index + 1, 'next');
+        playCurrentPage();
+    }, delayMs);
+}
+
+function playCurrentPage() {
+    clearBookTimer();
+    const page = book.pages[book.index];
+    if (!page) {
+        return;
+    }
+    // 음성이 없는 쪽은 글자 수로 낭독 시간을 추정해 같은 리듬을 유지한다.
+    if (!page.audio) {
+        scheduleNextPage(readDurationMs(page.text) + PAGE_GAP_MS);
+        return;
+    }
+    el.bookAudio.src = page.audio;
+    playPageAudio(() => {
+        // 재생을 못 하면(자동재생 차단·디코드 실패) 이야기가 멈추지 않게 타이머로 이어간다.
+        scheduleNextPage(readDurationMs(page.text) + PAGE_GAP_MS);
+    });
+}
+
+// play() 는 promise 다. 재생이 시작되기 전에 pause() 가 끼어들면 AbortError 로 거부되는데,
+// 이것은 "빠르게 다음 쪽을 눌렀다" 같은 정상적인 조작의 결과라 에러로 취급하지 않는다.
+// 진짜 실패(차단·디코드 오류)일 때만 폴백을 태운다.
+function playPageAudio(onFailure) {
+    const playing = el.bookAudio.play();
+    if (!playing || typeof playing.catch !== 'function') {
+        return;
+    }
+    playing.catch((err) => {
+        if (err && err.name === 'AbortError') {
+            return;
+        }
+        if (!book.playing) {
+            return;
+        }
+        console.error('book page audio play failed', err);
+        onFailure();
+    });
+}
+
+// 일시정지 — 음성과 자동 넘김을 함께 멈춘다. 둘 중 하나만 멈추면 화면과 소리가 어긋난다.
+function pauseBook() {
+    book.playing = false;
+    clearBookTimer();
+    pauseAudioFromCode();
+    updateBookControls();
+}
+
+function startBook() {
+    book.playing = true;
+    updateBookControls();
+    // 이 클릭이 소리의 유일한 시작점이다(autoplay 금지 — 진입 즉시 소리가 나면 안 된다).
+    ensureAudioCtx();
+    // 음성 도중에 멈춘 것이면 그 자리에서 이어 재생한다.
+    const page = book.pages[book.index];
+    if (el.bookAudio.getAttribute('src') && !el.bookAudio.ended && el.bookAudio.currentTime > 0) {
+        playPageAudio(() => {
+            const remaining = Math.max(0, (el.bookAudio.duration || 0) - el.bookAudio.currentTime);
+            scheduleNextPage(Math.round(remaining * 1000) + PAGE_GAP_MS);
+        });
+        return;
+    }
+    if (!page) {
+        return;
+    }
+    playCurrentPage();
+}
+
+function toggleBookPlay() {
+    if (book.playing) {
+        pauseBook();
+    } else {
+        startBook();
+    }
+}
+
+// 빠른 넘김 — 아이가 그림을 더 보려는 신호로 읽고 자동 진행을 일시정지로 돌린다.
+function stepBookPage(delta) {
+    const next = book.index + delta;
+    if (next < 0 || next >= book.pages.length) {
+        return;
+    }
+    pauseBook();
+    gotoPage(next, delta < 0 ? 'prev' : 'next');
+}
+
+// 화면을 벗어날 때의 완전 정지 — 음성·타이머·애니메이션 클래스까지 원점으로.
+function stopBookViewer() {
+    if (!el.bookAudio) {
+        return;
+    }
+    book.playing = false;
+    clearBookTimer();
+    resetPageAudio();
+    book.selfPause = false;
+    if (el.bookSheet) {
+        el.bookSheet.classList.remove('turn-next', 'turn-prev');
+    }
+}
+
+function showBookViewer(pages) {
+    stopBookViewer();
+    book.pages = Array.isArray(pages) ? pages : [];
+    book.index = 0;
+
+    const hasPages = book.pages.length > 0;
+    el.bookViewer.style.display = hasPages ? 'flex' : 'none';
+    el.bookViewerBottom.style.display = hasPages ? 'block' : 'none';
+    // 폴백(요약 카드)과 북뷰어는 동시에 뜨지 않는다 — 같은 이야기를 두 번 보여주게 된다.
+    el.introFallback.style.display = hasPages ? 'none' : 'block';
+    el.introFallbackBottom.style.display = hasPages ? 'none' : 'block';
+    if (!hasPages) {
+        return;
+    }
+    renderBookPage('next');
+}
+
+function initBookViewer() {
+    el.bookPlayBtn.addEventListener('click', toggleBookPlay);
+    el.bookPrevBtn.addEventListener('click', () => stepBookPage(-1));
+    el.bookNextBtn.addEventListener('click', () => stepBookPage(1));
+    el.bookMuteBtn.addEventListener('click', toggleBookMute);
+    el.bookSkipBtn.addEventListener('click', () => {
+        resetSpeechState();
+        goTo('screen4');
+    });
+
+    // 자동 진행의 기준 신호. 음성이 끝나야 다음 쪽으로 넘어간다.
+    el.bookAudio.addEventListener('ended', () => {
+        if (book.playing) {
+            scheduleNextPage(PAGE_GAP_MS);
+        }
+    });
+    // 우리가 부르지 않은 정지(태블릿 화면 잠금, 탭 백그라운드 전환)를 일시정지로 반영한다.
+    // 재생 중 상태로 남겨 두면 예약된 타이머도 없어 이야기가 조용히 굳고, 버튼에는
+    // "잠깐 멈추기"가 떠 있어 진행자가 왜 멈췄는지 알 수 없다.
+    el.bookAudio.addEventListener('pause', () => {
+        if (book.selfPause) {
+            book.selfPause = false;
+            return;
+        }
+        if (book.playing && !el.bookAudio.ended) {
+            pauseBook();
+        }
+    });
+    // 음성 파일이 깨졌거나 404 여도 이야기가 멈추면 안 된다 — 글자 수 타이머로 이어간다.
+    el.bookAudio.addEventListener('error', () => {
+        if (!el.bookAudio.getAttribute('src') || !book.playing) {
+            return;
+        }
+        const page = book.pages[book.index];
+        console.error('book page audio load failed', el.bookAudio.getAttribute('src'));
+        scheduleNextPage(readDurationMs(page && page.text) + PAGE_GAP_MS);
+    });
+}
+
 async function selectStory(id) {
     try {
         const detail = await api.getStory(id);
@@ -310,6 +676,7 @@ async function selectStory(id) {
         el.introSummary.textContent = detail.intro_summary || '';
         showIntroImage(detail.intro_image);
         showIntroAudio(detail.intro_audio);
+        showBookViewer(detail.intro_pages);
     } catch (err) {
         console.error('failed to load story detail', err);
         state.currentStory = { id: id, title: '' };
@@ -317,6 +684,7 @@ async function selectStory(id) {
         el.introSummary.textContent = '이야기를 불러오지 못했어요. 다시 시도해 주세요.';
         showIntroImage(null);
         showIntroAudio(null);
+        showBookViewer([]);
     }
     goTo('screen3');
 }
@@ -634,6 +1002,23 @@ function init() {
         introAudioIcon: document.getElementById('introAudioIcon'),
         introAudioLabel: document.getElementById('introAudioLabel'),
         introAudio: document.getElementById('introAudio'),
+        introFallback: document.getElementById('introFallback'),
+        introFallbackBottom: document.getElementById('introFallbackBottom'),
+        bookViewer: document.getElementById('bookViewer'),
+        bookViewerBottom: document.getElementById('bookViewerBottom'),
+        bookSheet: document.getElementById('bookSheet'),
+        bookIllust: document.getElementById('bookIllust'),
+        bookIllustImg: document.getElementById('bookIllustImg'),
+        bookText: document.getElementById('bookText'),
+        bookIndicator: document.getElementById('bookIndicator'),
+        bookMuteBtn: document.getElementById('bookMuteBtn'),
+        bookPrevBtn: document.getElementById('bookPrevBtn'),
+        bookNextBtn: document.getElementById('bookNextBtn'),
+        bookPlayBtn: document.getElementById('bookPlayBtn'),
+        bookPlayIcon: document.getElementById('bookPlayIcon'),
+        bookPlayLabel: document.getElementById('bookPlayLabel'),
+        bookSkipBtn: document.getElementById('bookSkipBtn'),
+        bookAudio: document.getElementById('bookAudio'),
         goScreen4Btn: document.getElementById('goScreen4Btn'),
         micBtn: document.getElementById('micBtn'),
         micUnsupportedNote: document.getElementById('micUnsupportedNote'),
@@ -687,6 +1072,7 @@ function init() {
     el.goHomeBtn.addEventListener('click', goHome);
 
     initIntroAudio();
+    initBookViewer();
     initSpeechRecognition();
     updateAiButtonState();
 }

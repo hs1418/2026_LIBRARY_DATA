@@ -24,6 +24,10 @@ class Story(Base):
     # 커밋하는 정적 자산이라 런타임 TTS 호출은 없다(ADR-0004 — 현장 인터넷/외부 API 가
     # 재생 실패 지점이 되면 안 된다). 비어 있으면 프론트가 재생 버튼째 숨긴다.
     intro_audio: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)
+    # 북뷰어용 원작 전문 페이지 [{no, text, image, audio}] — 시드의 INTRO_PAGE_n 에서 채운다.
+    # 페이지가 없는 이야기는 빈 배열이고, 프론트는 intro_summary 카드로 폴백한다.
+    # image/audio 는 파일이 실제로 있을 때만 경로가 들어간다(표지·음성과 같은 폴백 규칙).
+    intro_pages: Mapped[list] = mapped_column(sa.JSON, default=list, nullable=False)
     # 디자인팀 표지 이미지(/static/covers/{slug}.jpg). 비어 있으면 이모지 표지로 폴백한다
     # — 파일이 유실돼도 서가·PDF 가 깨지지 않게 하는 안전망.
     cover_image: Mapped[str] = mapped_column(sa.String(500), default="", nullable=False)

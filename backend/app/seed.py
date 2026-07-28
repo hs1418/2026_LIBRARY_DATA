@@ -4,9 +4,12 @@
 파싱해 Story 행으로 옮기기만 한다 — AI팀이 파일만 고치면 재시딩으로 그대로 반영된다.
 
 시드 파일 문법:
-    [STORY_n]      TITLE / EMOJI / KEYWORD / INTRO_SUMMARY 필드
+    [STORY_n]      TITLE / EMOJI / KEYWORD / INTRO_SUMMARY 필드 + INTRO_PAGE_n 0줄 이상
     [RECOMMEND_n]  "번호. 제목 | 저자 | 출판사 | 청구기호" 5줄
     '#' 로 시작하는 줄과 빈 줄은 주석/구분선이라 무시한다.
+
+INTRO_PAGE_n 은 북뷰어(원작을 그림책처럼 넘겨 보는 화면)용 원작 전문이다. 있는 이야기만
+Story.intro_pages 가 채워지고, 없으면 빈 배열 → 프론트가 intro_summary 카드로 폴백한다.
 
 판권기(bibliography)는 시드 파일에 발행연도·발행처가 없다. 실물 서지를 확보한
 콩쥐팥쥐전(1920년대 딱지본, AI/data/kongjwi_seed.txt)만 채우고 나머지 9편은 비워 둔다.
@@ -33,6 +36,9 @@ SEED_FILE = (
 # 정적 자산 루트(backend/static) — 표지·딱지본 스캔·도입부 음성이 모두 여기 있다.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 AUDIO_DIR = STATIC_DIR / "audio"
+# 북뷰어 페이지 삽화(/static/story/{slug}/p{n}.jpg). 디자인팀 제작분이 들어오는 자리라
+# 지금은 폴더 자체가 비어 있을 수 있다 — 파일이 생기면 재시딩만으로 자동 반영된다.
+STORY_IMAGE_DIR = STATIC_DIR / "story"
 
 # 제목 → ASCII slug. 파일명은 ASCII 로 고정한다(URL·파일시스템 안전).
 # 표지 이미지와 도입부 음성이 이 매핑 하나를 공유한다 — 자산 종류마다 매핑을 복제하면
@@ -86,6 +92,7 @@ BIBLIOGRAPHIES: dict[str, dict] = {
 
 _SECTION_RE = re.compile(r"^\[(STORY|RECOMMEND)_(\d+)\]$")
 _FIELD_RE = re.compile(r"^(TITLE|EMOJI|KEYWORD|INTRO_SUMMARY)\s*:\s*(.*)$")
+_INTRO_PAGE_RE = re.compile(r"^INTRO_PAGE_(\d+)\s*:\s*(.*)$")
 _BOOK_RE = re.compile(r"^\d+\.\s*(.+)$")
 
 
@@ -125,6 +132,51 @@ def audio_path(title: str) -> str:
     return f"/static/audio/{slug}.mp3" if (AUDIO_DIR / f"{slug}.mp3").is_file() else ""
 
 
+def page_image_path(slug: str, no: int) -> str:
+    """북뷰어 페이지 삽화 URL. 파일이 없으면 빈 문자열 → 프론트가 플레이스홀더를 깐다.
+
+    삽화는 디자인팀이 나중에 넣는다. 없는 그림을 경로로 약속해 두면 화면에 깨진
+    이미지가 뜨므로, 표지·음성과 같은 규칙으로 '파일 존재'만을 판단 기준으로 삼는다.
+    """
+    if not slug:
+        return ""
+    name = f"p{no}.jpg"
+    return f"/static/story/{slug}/{name}" if (STORY_IMAGE_DIR / slug / name).is_file() else ""
+
+
+def page_audio_path(slug: str, no: int) -> str:
+    """북뷰어 페이지 음성 URL. 파일이 없으면 빈 문자열 → 프론트가 글자 수 타이머로 넘긴다.
+
+    자동 넘김 타이밍의 기준이 이 음성 길이라 페이지 단위로 따로 만든다
+    (scripts/generate_intro_audio.py). 통짜 {slug}.mp3 는 폴백용으로 그대로 남는다.
+    """
+    if not slug:
+        return ""
+    name = f"p{no}.mp3"
+    return f"/static/audio/{slug}/{name}" if (AUDIO_DIR / slug / name).is_file() else ""
+
+
+def build_intro_pages(title: str, texts: dict[int, str]) -> list[dict]:
+    """{페이지 번호: 본문} → [{no, text, image, audio}] (번호 오름차순).
+
+    시드에 적힌 번호가 그대로 자산 파일명(p{n}.jpg / p{n}.mp3)을 결정한다 —
+    배열 위치로 다시 매기면 시드에서 페이지를 하나 빼는 순간 그림·음성이 통째로 밀린다.
+    """
+    slug = story_slug(title)
+    return [
+        {
+            "no": no,
+            "text": texts[no].strip(),
+            "image": page_image_path(slug, no),
+            "audio": page_audio_path(slug, no),
+        }
+        for no in sorted(texts)
+        # 본문이 빈 줄은 페이지로 세지 않는다 — 시드 오타가 빈 쪽을 만들면 자동 넘김이
+        # 아무 소리 없이 4초를 서 있는다.
+        if texts[no].strip()
+    ]
+
+
 def parse_seed_file(path: Path | None = None) -> list[dict]:
     """시드 파일 → Story(**dict) 로 바로 넘길 수 있는 dict 목록(파일 등장 순서).
 
@@ -133,6 +185,7 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
     text = (path or SEED_FILE).read_text(encoding="utf-8")
 
     fields: dict[int, dict[str, str]] = {}
+    pages: dict[int, dict[int, str]] = {}
     books: dict[int, list[dict]] = {}
     order: list[int] = []
     current: tuple[str, int] | None = None
@@ -148,6 +201,7 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
             current = (kind, number)
             if kind == "STORY" and number not in fields:
                 fields[number] = {}
+                pages[number] = {}
                 order.append(number)
             elif kind == "RECOMMEND":
                 books.setdefault(number, [])
@@ -158,6 +212,12 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
 
         kind, number = current
         if kind == "STORY":
+            # INTRO_PAGE_n 을 먼저 본다 — 일반 필드 목록과 이름이 겹치지 않아 순서 자체가
+            # 중요하진 않지만, 페이지가 필드 dict 에 섞여 들어가는 사고를 구조로 막는다.
+            intro_page = _INTRO_PAGE_RE.match(line)
+            if intro_page:
+                pages[number][int(intro_page.group(1))] = intro_page.group(2).strip()
+                continue
             field = _FIELD_RE.match(line)
             if field:
                 fields[number][field.group(1)] = field.group(2).strip()
@@ -187,6 +247,8 @@ def parse_seed_file(path: Path | None = None) -> list[dict]:
                 "intro_summary": entry.get("INTRO_SUMMARY", ""),
                 "intro_image": INTRO_IMAGES.get(title, ""),
                 "intro_audio": audio_path(title),
+                # INTRO_PAGE_n 이 없는 이야기는 빈 배열 → 프론트가 요약 카드로 폴백한다.
+                "intro_pages": build_intro_pages(title, pages[number]),
                 "cover_image": cover_path(title),
                 "bibliography": BIBLIOGRAPHIES.get(title, {}),
                 "fixed_keywords": keywords,
