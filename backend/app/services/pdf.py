@@ -173,23 +173,27 @@ def cover_data_uri(cover_image: str) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
-def build_pages(story: Story, session: Session, lang: str) -> list[dict]:
-    """책의 쪽 목록을 순서대로 만든다(총 쪽수는 4의 배수).
+def build_pages(story: Story, session: Session, lang: str, *, pad: bool = True) -> list[dict]:
+    """책의 쪽 목록을 순서대로 만든다(pad=True 면 총 쪽수가 4의 배수).
 
     [표지][원작 앞부분][아이 뒷이야기 xN][빈 그림페이지 x패딩][판권기]
     - 원작 앞부분(story.intro_summary)이 들어가야 "완전본"이 된다(감사 A-6).
     - 빈 페이지는 판권기 '바로 앞'에 넣는다 — 버리는 종이가 아니라 "더 그릴 공간".
     - 쪽번호는 원작 앞부분을 1 로 시작해 본문/빈 페이지까지 순차 증가.
       표지·판권기에는 번호가 없다.
+
+    pad 는 접지 때문에 필요한 보정이라 태블릿용(single)에서는 끈다. 화면에서는
+    종이가 남는 개념이 없어 빈 쪽이 넘길 거리만 늘린다.
     """
     body: list[dict] = [{"kind": "content", "text": story.intro_summary or ""}]
     for page in session.pages or []:
         body.append({"kind": "content", "text": (page.get(lang) or "").strip()})
 
-    # 표지 1 + 본문 len(body) + 판권기 1 을 4의 배수로 올림 → 부족분이 빈 페이지 수.
-    used = len(body) + 2
-    padding = -used % PAGES_PER_SIGNATURE
-    body.extend({"kind": "blank", "text": ""} for _ in range(padding))
+    if pad:
+        # 표지 1 + 본문 len(body) + 판권기 1 을 4의 배수로 올림 → 부족분이 빈 페이지 수.
+        used = len(body) + 2
+        padding = -used % PAGES_PER_SIGNATURE
+        body.extend({"kind": "blank", "text": ""} for _ in range(padding))
 
     for index, page in enumerate(body, start=1):
         page["no"] = index
@@ -229,17 +233,26 @@ def impose(pages: list[dict]) -> list[dict]:
     return sheets
 
 
-def render_book_html(story: Story, session: Session, author_name: str = "") -> str:
-    """book.html 을 데이터로 채워 HTML 문자열 반환."""
+def render_book_html(
+    story: Story, session: Session, author_name: str = "", layout: str = "booklet"
+) -> str:
+    """book.html 을 데이터로 채워 HTML 문자열 반환.
+
+    layout="booklet" 은 A4 가로 중철 배치(인쇄·제본용), "single" 은 A5 세로 1쪽씩
+    순서대로(태블릿 열람·드로잉용). 쪽을 그리는 매크로는 같고 감싸는 지면만 다르다.
+    """
     lang = normalize_lang(session.lang)
-    pages = build_pages(story, session, lang)
+    single = layout == "single"
+    pages = build_pages(story, session, lang, pad=not single)
     template = _env.get_template("book.html")
     return template.render(
         story=story,
         session=session,
         lang=lang,
         t=_LABELS[lang],
-        sheets=impose(pages),
+        layout=layout,
+        pages=pages,
+        sheets=[] if single else impose(pages),
         total_pages=len(pages),
         author=author_display(author_name, lang),
         pubdate=format_pubdate(session.created_at, lang),
@@ -249,25 +262,31 @@ def render_book_html(story: Story, session: Session, author_name: str = "") -> s
     )
 
 
-async def html_to_pdf(html_str: str) -> bytes:
-    """HTML → A4 가로 PDF 바이트 (297x210mm, 반접기 배치본)."""
+# 지면 크기 — booklet 은 A4 가로 한 장에 A5 두 면, single 은 A5 세로 한 면.
+PAGE_SIZE_MM: dict[str, tuple[str, str]] = {
+    "booklet": ("297mm", "210mm"),
+    "single": ("148mm", "210mm"),
+}
+
+
+async def html_to_pdf(html_str: str, layout: str = "booklet") -> bytes:
+    """HTML → PDF 바이트. 지면 크기는 layout 에 따라 갈린다."""
+    width, height = PAGE_SIZE_MM.get(layout, PAGE_SIZE_MM["booklet"])
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         try:
             page = await browser.new_page()
             await page.set_content(html_str, wait_until="load")
-            return await page.pdf(
-                width="297mm",
-                height="210mm",
-                print_background=True,
-            )
+            return await page.pdf(width=width, height=height, print_background=True)
         finally:
             await browser.close()
 
 
-async def render_pdf(story: Story, session: Session, author_name: str = "") -> bytes:
-    """Story/Session → A4 가로 반접기 PDF 바이트."""
-    return await html_to_pdf(render_book_html(story, session, author_name))
+async def render_pdf(
+    story: Story, session: Session, author_name: str = "", layout: str = "booklet"
+) -> bytes:
+    """Story/Session → PDF 바이트. booklet=A4 가로 반접기, single=A5 세로 순차."""
+    return await html_to_pdf(render_book_html(story, session, author_name, layout), layout)
 
 
 def fallback_pdf_bytes() -> bytes | None:

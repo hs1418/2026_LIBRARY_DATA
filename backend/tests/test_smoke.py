@@ -79,9 +79,10 @@ async def test_pdf_post_renders_and_never_persists_author_name(client: AsyncClie
     """아이 이름은 POST 바디로만 받고(URL 노출 없음), 렌더링에만 쓰고 저장하지 않는다(NFR-6)."""
     captured = {}
 
-    async def fake_html_to_pdf(html_str: str) -> bytes:
+    async def fake_html_to_pdf(html_str: str, layout: str = "booklet") -> bytes:
         # Chromium 없이도 돌게 렌더 단계만 대체 — HTML 생성(Jinja2)은 실제로 수행된다.
         captured["html"] = html_str
+        captured["layout"] = layout
         return b"%PDF-1.4 fake"
 
     monkeypatch.setattr(pdf_service, "html_to_pdf", fake_html_to_pdf)

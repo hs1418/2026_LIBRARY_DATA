@@ -58,14 +58,15 @@ const api = {
     },
     // 아이 이름은 URL(쿼리스트링)이 아니라 POST 바디로만 보낸다 — 서버 액세스 로그·
     // 브라우저 히스토리에 이름이 남지 않게 하기 위함(NFR-6 / ADR-0005).
-    fetchPdfBlob(sessionId, authorName) {
+    // layout: 'booklet'(A4 접지 배치) | 'single'(A5 순서대로 — 태블릿 드로잉용)
+    fetchPdfBlob(sessionId, authorName, layout) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT_MS);
 
         return fetch(API_BASE + '/sessions/' + encodeURIComponent(sessionId) + '/pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ author_name: authorName }),
+            body: JSON.stringify({ author_name: authorName, layout: layout || 'booklet' }),
             signal: controller.signal
         })
             .then((res) => {
@@ -898,25 +899,28 @@ function hidePdfError() {
     el.pdfError.classList.remove('visible');
 }
 
-function pdfFileName() {
+function pdfFileName(layout) {
     // 파일명에는 아이 이름을 넣지 않는다 — 다운로드 폴더에 이름이 남기 때문.
     const title = (state.currentStory && state.currentStory.title) || '우리동화';
-    return title.replace(/[\\/:*?"<>|]/g, '') + '_동화책.pdf';
+    const suffix = layout === 'single' ? '_동화책_태블릿용.pdf' : '_동화책.pdf';
+    return title.replace(/[\\/:*?"<>|]/g, '') + suffix;
 }
 
-async function handleDownloadPdf() {
+async function downloadPdf(layout, button) {
     if (!state.sessionId) {
         return;
     }
     const authorName = el.authorNameInput.value.trim();
     hidePdfError();
+    // 두 버튼이 같은 렌더러를 쓰므로 생성 중에는 둘 다 잠근다.
     el.downloadPdfBtn.disabled = true;
+    el.downloadTabletPdfBtn.disabled = true;
     try {
-        const blob = await api.fetchPdfBlob(state.sessionId, authorName);
+        const blob = await api.fetchPdfBlob(state.sessionId, authorName, layout);
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = objectUrl;
-        link.download = pdfFileName();
+        link.download = pdfFileName(layout);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -926,6 +930,10 @@ async function handleDownloadPdf() {
         showPdfError();
     } finally {
         el.downloadPdfBtn.disabled = false;
+        el.downloadTabletPdfBtn.disabled = false;
+        if (button) {
+            button.blur();
+        }
     }
 }
 
@@ -950,6 +958,9 @@ function renderReceiptBooks(books) {
         return;
     }
     books.forEach((book, idx) => {
+        const item = document.createElement('div');
+        item.className = 'receipt-book-item';
+
         const row = document.createElement('div');
         row.className = 'receipt-book-row';
 
@@ -958,14 +969,23 @@ function renderReceiptBooks(books) {
         name.textContent = (idx + 1) + '. ' + (book.title || '');
         row.appendChild(name);
 
-        // 청구기호가 없는 응답도 있다(정보나루 class_no 결측). 빈 회색 조각이 남지 않게 건너뛴다.
+        // 분류번호가 없는 응답도 있다(정보나루 class_no 결측). 빈 회색 조각이 남지 않게 건너뛴다.
         if (book.call_number) {
             const code = document.createElement('strong');
             code.className = 'receipt-book-code';
             code.textContent = book.call_number;
             row.appendChild(code);
         }
-        el.receiptBooks.appendChild(row);
+        item.appendChild(row);
+
+        // 분류명("문학 > 한국문학 > 소설")은 번호만으로 어느 서가인지 모르는 아이를 위한 안내다.
+        if (book.class_name) {
+            const cls = document.createElement('div');
+            cls.className = 'receipt-book-class';
+            cls.textContent = book.class_name;
+            item.appendChild(cls);
+        }
+        el.receiptBooks.appendChild(item);
     });
 }
 
@@ -1075,6 +1095,7 @@ function init() {
         pdfScrollBox: document.getElementById('pdfScrollBox'),
         authorNameInput: document.getElementById('authorNameInput'),
         downloadPdfBtn: document.getElementById('downloadPdfBtn'),
+        downloadTabletPdfBtn: document.getElementById('downloadTabletPdfBtn'),
         pdfError: document.getElementById('pdfError'),
         receiptBanner: document.getElementById('receiptBanner'),
         receiptModal: document.getElementById('receiptModal'),
@@ -1108,7 +1129,8 @@ function init() {
     });
     el.aiBtn.addEventListener('click', handleGenerate);
 
-    el.downloadPdfBtn.addEventListener('click', handleDownloadPdf);
+    el.downloadPdfBtn.addEventListener('click', (e) => downloadPdf('booklet', e.currentTarget));
+    el.downloadTabletPdfBtn.addEventListener('click', (e) => downloadPdf('single', e.currentTarget));
 
     el.receiptBanner.addEventListener('click', openReceipt);
     el.closeReceiptBtn.addEventListener('click', closeReceipt);

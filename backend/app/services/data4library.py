@@ -66,6 +66,7 @@ def _normalize_book(item: dict) -> dict:
         "author": str(item.get("author", "")),
         "publisher": str(item.get("publisher", "")),
         "call_number": str(item.get("call_number", "")),
+        "class_name": str(item.get("class_name", "")),
     }
 
 
@@ -79,9 +80,15 @@ def _fallback_books(story: Story) -> list[dict]:
 async def _srch_books(query: str) -> list[dict]:
     """정보나루 srchBooks 호출 — 네트워크 seam(테스트는 이 함수를 monkeypatch 한다).
 
-    반환: [{title, author, publisher, call_number}] (raw 텍스트 — escape 는 렌더 계층).
+    반환: [{title, author, publisher, call_number, class_name}] (raw — escape 는 렌더 계층).
     실패 시 예외 전파.
-    필드 매핑: 정보나루 bookname → title, authors → author, class_no → call_number.
+    필드 매핑: bookname → title, authors → author, class_no → call_number,
+    class_nm → class_name.
+
+    class_no 는 KDC 분류번호(813.5)이지 완전한 청구기호(813.8-보64ㅋ-2)가 아니다.
+    저자기호·권차는 도서관별 목록 규칙이라 정보나루 어느 API 에도 없다(srchBooks·
+    srchDtlList·bookExist 확인). 지어내면 실제 서가와 어긋나므로, 분류명을 함께 내려
+    아이가 어느 칸으로 갈지 알 수 있게 한다.
     """
     async with httpx.AsyncClient(timeout=DATA4LIBRARY_TIMEOUT) as client:
         resp = await client.get(
@@ -109,6 +116,7 @@ async def _srch_books(query: str) -> list[dict]:
                 "author": str(book.get("authors", "")),
                 "publisher": str(book.get("publisher", "")),
                 "call_number": str(book.get("class_no", "")),
+                "class_name": str(book.get("class_nm", "")),
             }
         )
     return books

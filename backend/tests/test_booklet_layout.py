@@ -173,6 +173,40 @@ async def test_pdf_is_a4_landscape_with_expected_sheet_count():
         assert height == pytest.approx(210 * MM_TO_PT, abs=1.0)
 
 
+# ── 태블릿용(single) 레이아웃 ────────────────────────────────────────────────
+def test_single_layout_keeps_reading_order():
+    """태블릿용은 접지가 없으므로 쪽이 읽는 순서 그대로여야 한다.
+
+    제본용은 접어서 엮을 때 순서가 맞도록 배치가 뒤섞이는데(impose), 화면에서
+    그대로 넘겨 보는 용도에서는 그 배치가 그대로 오독이 된다.
+    """
+    pages = pdf_service.build_pages(_story(), _session(3), "ko", pad=False)
+
+    # 표지 + 원작 + 아이 3쪽 + 판권기 = 6쪽. 접지용 4배수 패딩이 붙지 않는다.
+    assert [p["kind"] for p in pages] == [
+        "cover", "content", "content", "content", "content", "colophon",
+    ]
+    html = pdf_service.render_book_html(_story(), _session(3), "김토스", layout="single")
+    assert _page_numbers(html) == [1, 2, 3, 4]  # 표지·판권기는 번호가 없다
+    # CSS 에는 두 레이아웃의 규칙이 함께 들어 있으므로 마크업(=실제로 그려진 지면)만 본다.
+    body = html.split("</style>")[1]
+    assert "a4-sheet" not in body and "fold-line" not in body
+    assert body.count('class="a5-page"') == len(pages)
+    assert "A5 portrait" in html
+
+
+@pytest.mark.pdf
+async def test_single_layout_prints_a5_portrait():
+    """(e) 실제 렌더 — A5 세로 148×210mm, 쪽수는 build_pages 와 일치."""
+    data = await pdf_service.render_pdf(_story(), _session(3), "김토스", layout="single")
+    reader = PdfReader(io.BytesIO(data))
+
+    assert len(reader.pages) == 6
+    for page in reader.pages:
+        assert float(page.mediabox.width) == pytest.approx(148 * MM_TO_PT, abs=1.0)
+        assert float(page.mediabox.height) == pytest.approx(210 * MM_TO_PT, abs=1.0)
+
+
 def test_drawing_area_border_survives_print():
     """그림칸 테두리는 인쇄에도 남아야 한다 — 한 번 제거했다가 피드백으로 되돌린 항목이다."""
     html = pdf_service.render_book_html(_story(), _session(3))

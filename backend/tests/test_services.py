@@ -202,14 +202,11 @@ async def test_data4library_empty_result_falls_back(monkeypatch):
     books, fallback = await data4library.search_recommendations(story, ["두꺼비"])
 
     assert fallback is True
-    assert books == [
-        {
-            "title": "시드 폴백",
-            "author": "",
-            "publisher": "",
-            "call_number": "000",
-        }
-    ]
+    # 응답 필드가 늘어도 깨지지 않게 값만 확인한다(폴백이 시드 도서로 채워졌는지가 요지).
+    assert len(books) == 1
+    assert books[0]["title"] == "시드 폴백"
+    assert books[0]["call_number"] == "000"
+    assert books[0]["author"] == "" and books[0]["publisher"] == ""
 
 
 # ── 한자 혼입 차단 ──────────────────────────────────────────────────────────

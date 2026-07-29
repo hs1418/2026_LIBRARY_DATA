@@ -45,6 +45,19 @@
   }
   .a4-sheet:last-child { page-break-after: auto; }
 
+  /* 태블릿용 지면 — A5 세로 한 면. 접지가 없으니 접는 선도 두지 않는다. */
+  .a5-page {
+    width: 148mm;
+    height: 210mm;
+    background-color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    box-sizing: border-box;
+    page-break-after: always;
+  }
+  .a5-page:last-child { page-break-after: auto; }
+  .a5-page > .a5-half { width: 100%; }
+
   .fold-line {
     position: absolute;
     top: 0; bottom: 0; left: 50%;
@@ -149,9 +162,9 @@
 
   /* 인쇄 설정 — Playwright page.pdf() 는 기본이 print 미디어라 이 블록이 적용된다. */
   @media print {
-    @page { size: A4 landscape; margin: 0; }
+    @page { size: {% if layout == 'single' %}A5 portrait{% else %}A4 landscape{% endif %}; margin: 0; }
     body { background-color: white; margin: 0; padding: 0; gap: 0; }
-    .a4-sheet { box-shadow: none; border: none; }
+    .a4-sheet, .a5-page { box-shadow: none; border: none; }
     .fold-line { border-left: 1px dashed #EEE; }
     .drawing-text { display: none; }
     /* 그림칸 테두리는 인쇄에도 남긴다 — 그릴 자리가 보이지 않는다는 피드백으로 번복. */
@@ -215,6 +228,12 @@
   {% endif %}
 {%- endmacro %}
 
+{% if layout == 'single' %}
+{# 태블릿용 — 접지가 없으므로 A5 한 면씩 읽는 순서 그대로 내보낸다. #}
+{% for page in pages %}
+<div class="a5-page">{{ half(page) }}</div>
+{% endfor %}
+{% else %}
 {% for sheet in sheets %}
 <div class="a4-sheet" data-side="{{ sheet.side }}">
   <div class="fold-line"></div>
@@ -222,6 +241,7 @@
   {{ half(sheet.right) }}
 </div>
 {% endfor %}
+{% endif %}
 
 </body>
 </html>

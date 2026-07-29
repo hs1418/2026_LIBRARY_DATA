@@ -60,7 +60,7 @@ async def create_session_pdf(
 
     # author_name 은 렌더링에만 사용하고 저장하지 않는다(NFR-6 / ADR-0005).
     # sessions 테이블에 이름 컬럼 자체가 없고, PDF 도 디스크에 쓰지 않고 메모리로 스트리밍한다.
-    data = await pdf.render_pdf(story, session, payload.author_name)
+    data = await pdf.render_pdf(story, session, payload.author_name, payload.layout)
     return Response(content=data, media_type="application/pdf")
 
 

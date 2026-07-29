@@ -239,6 +239,10 @@
         .pdf-text-area { height: 38%; padding: 12px; font-size: 9px; color: var(--text-main); line-height: 1.5; background: var(--white); font-weight: 500; }
         .pdf-text-en { color: var(--primary-celadon); font-size: 8px; margin-top: 4px; }
         .pdf-download-btn { margin-top: 20px; }
+        /* 태블릿용은 제본용 바로 아래 붙는 보조 선택지라 간격을 좁힌다. */
+        #downloadTabletPdfBtn { margin-top: 10px; }
+        .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pdf-hint { font-size: 12px; color: #888; line-height: 1.5; margin-top: 10px; text-align: center; }
 
         /* 폼 입력 요소 */
         .form-input { width: 100%; padding: 16px; background-color: var(--bg-paper); border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-family: inherit; box-sizing: border-box; outline: none; }
@@ -276,7 +280,10 @@
         .receipt-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
         .receipt-section-title { font-weight: bold; margin-bottom: 8px; }
         .receipt-keywords { font-size: 13px; color: var(--accent-red); margin-bottom: 16px; font-family: 'Pretendard Variable', sans-serif; font-weight: 600; }
-        .receipt-books { font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px; }
+        .receipt-books { font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px; }
+        .receipt-book-item { display: flex; flex-direction: column; }
+        /* KDC 분류명 — 번호(813.5)만으로는 어느 서가인지 모르는 아이를 위한 보조 안내. */
+        .receipt-book-class { font-size: 10px; color: #999; padding-left: 12px; line-height: 1.3; }
         .receipt-book-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
         /* flex 아이템의 기본 min-width 는 auto 라 긴 제목이 줄지 않고 청구기호를 밀어내 잘렸다.
            청구기호는 서가에서 책을 찾는 유일한 단서이므로 제목을 줄이고 기호를 온전히 남긴다. */
@@ -529,6 +536,8 @@
                 </div>
 
                 <button class="btn-primary pdf-download-btn" id="downloadPdfBtn">📥 제본용 PDF 다운로드</button>
+                <button class="btn-secondary pdf-download-btn" id="downloadTabletPdfBtn">✏️ 태블릿용 PDF 다운로드</button>
+                <p class="pdf-hint">제본용은 접어서 엮도록 쪽이 배치돼 있어요. 태블릿에서 그릴 때는 순서대로 나오는 태블릿용을 받으세요.</p>
                 <div class="generate-error" id="pdfError">PDF를 만들지 못했어요. 잠시 후 다시 눌러 주세요.</div>
             </div>
 

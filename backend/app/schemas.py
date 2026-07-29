@@ -96,6 +96,9 @@ class PdfRequest(BaseModel):
     """
 
     author_name: str = Field(default="", max_length=50)
+    # booklet: A4 가로 중철 배치(인쇄·제본용, 쪽 순서가 접지 순으로 뒤섞인다)
+    # single : A5 세로 1쪽씩 순서대로(태블릿에서 넘겨 보며 그리는 용도)
+    layout: Literal["booklet", "single"] = "booklet"
 
 
 # --- recommendations ---
@@ -103,7 +106,11 @@ class RecommendBook(BaseModel):
     title: str
     author: str = ""
     publisher: str = ""
+    # 정보나루가 주는 값은 KDC 분류번호(813.5)다. 저자기호까지 붙은 완전한 청구기호는
+    # 도서관별 목록 규칙이라 오픈 API 에 없다(srchBooks·srchDtlList·bookExist 모두 확인).
+    # 어느 서가인지 알 수 있도록 분류명을 함께 내린다.
     call_number: str = ""
+    class_name: str = ""
 
 
 class RecommendationsResponse(BaseModel):
