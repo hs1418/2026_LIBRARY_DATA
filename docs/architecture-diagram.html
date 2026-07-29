@@ -1,0 +1,240 @@
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background: #fff;
+    color: #1f2937;
+    -webkit-font-smoothing: antialiased;
+  }
+  #fig { width: 980px; padding: 22px 24px 20px; }
+
+  /* ── 공통 ─────────────────────────────────────── */
+  .zone { border-radius: 6px; padding: 11px 12px 12px; }
+  .zone > .zt {
+    font-size: 11.5px; font-weight: 700; letter-spacing: -.2px;
+    margin-bottom: 9px; display: flex; align-items: center; gap: 5px;
+  }
+  .zt .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+
+  .card {
+    background: #fff; border: 1px solid #d3dae3; border-radius: 4px;
+    padding: 6px 9px; font-size: 11.5px; line-height: 1.45;
+  }
+  .card b { font-weight: 700; }
+  .card .sub { display: block; font-size: 10px; color: #64748b; margin-top: 1px; letter-spacing: -.2px; }
+
+  .num {
+    display: inline-block; width: 14px; height: 14px; line-height: 14px;
+    border-radius: 50%; background: #334155; color: #fff;
+    font-size: 9px; text-align: center; margin-right: 5px; font-weight: 700;
+    vertical-align: 1px;
+  }
+
+  /* ── 사전 구축 ─────────────────────────────────── */
+  #pre {
+    border: 1.4px dashed #94a3b8; background: #f8fafc;
+    display: grid; grid-template-columns: 232px 30px 1fr; align-items: center;
+    column-gap: 0; padding: 12px 14px;
+  }
+  #pre .zt { grid-column: 1 / -1; color: #475569; }
+  #pre .zt .dot { background: #94a3b8; }
+  .srcs { display: grid; gap: 5px; }
+  .srcs .card { border-color: #b9c6d6; background: #fff; }
+  .assets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .assets .card { background: #fff; border-color: #b9c6d6; }
+  .brace {
+    justify-self: center; color: #64748b; font-size: 20px;
+    display: flex; align-items: center; height: 100%;
+  }
+
+  /* ── 시딩 화살표 ───────────────────────────────── */
+  .seedbar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 7px; padding: 5px 0 6px; color: #475569; font-size: 10.5px; font-weight: 700;
+  }
+  .seedbar .line { width: 1.6px; height: 13px; background: #94a3b8; }
+  .vstack { display: flex; flex-direction: column; align-items: center; }
+  .tri { width: 0; height: 0; border-left: 4.5px solid transparent; border-right: 4.5px solid transparent; border-top: 6px solid #94a3b8; }
+
+  /* ── 런타임 3열 ────────────────────────────────── */
+  #run { display: grid; grid-template-columns: 208px 46px 1fr 46px 172px; align-items: stretch; }
+
+  #site { border: 1.4px solid #64748b; background: #f1f5f9; }
+  #site .zt { color: #334155; } #site .zt .dot { background: #64748b; }
+  #site .card { border-color: #c2ccd8; }
+  .steps { display: grid; gap: 5px; }
+
+  #core { border: 1.4px solid #1e3a8a; background: #eff6ff; }
+  #core .zt { color: #1e3a8a; } #core .zt .dot { background: #1e3a8a; }
+  .routers { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .stack2 { margin-top: 7px; }
+  .router { background: #fff; border: 1px solid #b8ccea; border-radius: 4px; padding: 7px 9px 8px; }
+  .router .rh { font-size: 11.5px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px; }
+  .router ul { list-style: none; font-size: 10.5px; line-height: 1.72; color: #334155; }
+  .router li::before { content: '▪'; color: #7f9cc7; margin-right: 4px; font-size: 9px; }
+  .infra {
+    margin-top: 7px; background: #fff; border: 1px solid #b8ccea; border-radius: 4px;
+    padding: 6px 9px; font-size: 10.5px; color: #334155; display: flex; gap: 14px;
+  }
+  .infra span b { color: #1e3a8a; }
+
+  #ext { border: 1.4px solid #9a3412; background: #fff7ed; }
+  #ext .zt { color: #9a3412; } #ext .zt .dot { background: #9a3412; }
+  #ext .card { border-color: #e6c3a4; }
+  #ext .stack { display: grid; gap: 6px; }
+  .fb {
+    margin-top: 6px; font-size: 9.5px; color: #7c2d12; line-height: 1.5;
+    background: #ffedd5; border-radius: 3px; padding: 5px 7px; letter-spacing: -.3px;
+  }
+
+  /* 열 사이 화살표 — 라벨을 화살표와 같은 줄에 둬 세로로 깨지지 않게 한다 */
+  .conn { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 13px; }
+  .arrow { display: flex; align-items: center; gap: 3px; font-size: 9px; color: #475569; letter-spacing: -.4px; }
+  .arrow .shaft { width: 14px; height: 1.5px; background: #64748b; }
+  .arrow .headR { width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 5.5px solid #64748b; margin-left: -3px; }
+  .arrow .headL { width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 5.5px solid #64748b; margin-right: -3px; }
+
+  /* ── 하단 ──────────────────────────────────────── */
+  #bottom { display: grid; grid-template-columns: 1fr 300px; gap: 14px; align-items: start; margin-top: 0; }
+  .dbwrap { display: flex; flex-direction: column; align-items: center; }
+  #db {
+    border: 1.4px solid #166534; background: #f0fdf4; border-radius: 6px;
+    padding: 8px 14px; font-size: 11.5px; text-align: center; color: #14532d;
+    width: 100%;
+  }
+  #db b { font-weight: 700; }
+  #db .sub { font-size: 10px; color: #3f6b4d; margin-top: 1px; }
+
+  #deploy {
+    border: 1.4px dashed #a1a1aa; border-radius: 6px; background: #fafafa;
+    padding: 8px 11px; font-size: 10.5px; color: #52525b; line-height: 1.5;
+  }
+  #deploy b { color: #3f3f46; font-size: 11px; }
+</style>
+
+<div id="fig">
+
+  <!-- 사전 구축 -->
+  <div id="pre" class="zone">
+    <div class="zt"><span class="dot"></span>사전 구축 (워크숍 이전)</div>
+
+    <div class="srcs">
+      <div class="card"><b>국립중앙도서관</b> 딱지본<span class="sub">한글판 고전소설 · 원작 조사</span></div>
+      <div class="card"><b>국가서지</b> 서지정보<span class="sub">발행 연도 · 발행처</span></div>
+      <div class="card"><b>제작 자산</b><span class="sub">표지 · 삽화 · 성우 음성</span></div>
+    </div>
+
+    <div class="brace">▶</div>
+
+    <div class="assets">
+      <div class="card"><b>시드 데이터셋</b><span class="sub">이야기 9편 · 도서 45권<br>원작 본문 · 상상 질문</span></div>
+      <div class="card"><b>도입부 음성</b><span class="sub">edge-tts 사전 생성<br>쪽 단위 6개</span></div>
+      <div class="card"><b>판권기 서지</b><span class="sub">확인된 서지만 표기<br>미확인은 구전 표기</span></div>
+    </div>
+  </div>
+
+  <div class="seedbar">
+    <div class="vstack"><div class="line"></div><div class="tri"></div></div>
+    <span>부팅 시 시딩 (멱등)</span>
+    <div class="vstack"><div class="line"></div><div class="tri"></div></div>
+  </div>
+
+  <!-- 런타임 -->
+  <div id="run">
+
+    <div id="site" class="zone">
+      <div class="zt"><span class="dot"></span>워크숍 현장 (로컬 실행)</div>
+      <div class="steps">
+        <div class="card"><span class="num">1</span><b>서가</b><span class="sub">이야기 선택 · 미준비분 잠금</span></div>
+        <div class="card"><span class="num">2</span><b>북뷰어</b><span class="sub">원작 도입부 · 음성 자동 진행</span></div>
+        <div class="card"><span class="num">3</span><b>상상 입력</b><span class="sub">음성 인식 · 진행자 교정</span></div>
+        <div class="card"><span class="num">4</span><b>결과 확인</b><span class="sub">동화 · 추천 도서</span></div>
+        <div class="card"><span class="num">5</span><b>인쇄</b><span class="sub">제본 PDF · 상상 영수증</span></div>
+      </div>
+    </div>
+
+    <div class="conn">
+      <div class="arrow"><span>요청</span><div class="shaft"></div><div class="headR"></div></div>
+      <div class="arrow"><div class="headL"></div><div class="shaft"></div><span>응답</span></div>
+    </div>
+
+    <div id="core" class="zone">
+      <div class="zt"><span class="dot"></span>FastAPI 애플리케이션</div>
+      <div class="routers">
+        <div class="router">
+          <div class="rh">Story Router</div>
+          <ul>
+            <li>서가 목록 · 상세</li>
+            <li>원작 본문 · 삽화 경로</li>
+            <li>잠금 판정 (본문 유무)</li>
+          </ul>
+        </div>
+        <div class="router">
+          <div class="rh">Session Router</div>
+          <ul>
+            <li>동화 생성 · 검증 · 재시도</li>
+            <li>연계 도서 추천</li>
+            <li>제본 PDF · 영수증</li>
+          </ul>
+        </div>
+      </div>
+      <div class="routers stack2">
+        <div class="router">
+          <div class="rh">LLM Client</div>
+          <ul>
+            <li>프롬프트 조립 · 이어쓰기 강제</li>
+            <li>JSON 스키마 강제 출력</li>
+            <li>쪽수 · 한자 검증 → 재시도</li>
+          </ul>
+        </div>
+        <div class="router">
+          <div class="rh">PDF Renderer</div>
+          <ul>
+            <li>Playwright (Chromium)</li>
+            <li>중철 조판 · 4의 배수 보정</li>
+            <li>표지 base64 인라인</li>
+          </ul>
+        </div>
+      </div>
+      <div class="infra">
+        <span><b>공통</b> 아동 이름 미저장 · 액세스 로그 쿼리스트링 마스킹 · 화면과 인쇄물 동일 엔진</span>
+      </div>
+    </div>
+
+    <div class="conn">
+      <div class="arrow"><span>호출</span><div class="shaft"></div><div class="headR"></div></div>
+      <div class="arrow"><div class="headL"></div><div class="shaft"></div><span>응답</span></div>
+    </div>
+
+    <div id="ext" class="zone">
+      <div class="zt"><span class="dot"></span>외부 서비스</div>
+      <div class="stack">
+        <div class="card"><b>Groq API</b><span class="sub">Llama 3.3-70B<br>15초 · 재시도 1회</span></div>
+        <div class="card"><b>도서관 정보나루</b><span class="sub">srchBooks<br>8초 · 즉시 폴백</span></div>
+      </div>
+      <div class="fb">실패 시 사전 큐레이션 도서 →<br>전면 차단 시 샘플 PDF</div>
+    </div>
+  </div>
+
+  <div class="seedbar">
+    <div class="vstack"><div class="line"></div><div class="tri"></div></div>
+    <span>세션 저장 · 조회</span>
+    <div class="vstack"><div class="line"></div><div class="tri"></div></div>
+  </div>
+
+  <!-- 하단 -->
+  <div id="bottom">
+    <div class="dbwrap">
+      <div id="db">
+        <b>PostgreSQL</b> — Story (이야기 · 원작 본문 · 추천 도서) / Session (아이 구술 · 생성 결과)
+        <div class="sub">아동 이름 컬럼 없음 — 인쇄 요청 바디로만 전달하고 저장하지 않는다</div>
+      </div>
+    </div>
+    <div id="deploy">
+      <b>배포본 (Render · Docker)</b><br>
+      제출 링크와 시연 영상 녹화 전용. 워크숍 운영 경로와 분리해 현장이 외부 호스팅에 의존하지 않는다.
+    </div>
+  </div>
+
+</div>
