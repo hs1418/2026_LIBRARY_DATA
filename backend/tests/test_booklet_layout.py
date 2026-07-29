@@ -173,6 +173,27 @@ async def test_pdf_is_a4_landscape_with_expected_sheet_count():
         assert height == pytest.approx(210 * MM_TO_PT, abs=1.0)
 
 
+def test_blank_pages_carry_no_label():
+    """남는 면은 문구 없이 비운다 — 지면 전체를 아이 그림에 내주기로 했다.
+
+    라벨을 되살리면 실물 그림칸을 침범하므로 HTML 단계에서 막는다.
+    """
+    for lang in ("ko", "en"):
+        html = pdf_service.render_book_html(_story(), _session(3, lang=lang))
+        assert "그림 페이지" not in html
+        assert "drawing page" not in html
+
+
+@pytest.mark.pdf
+async def test_blank_pages_print_empty():
+    """(e) 실제 인쇄물에도 빈 면이 비어 있어야 한다 — 렌더 결과로 확인한다."""
+    data = await pdf_service.render_pdf(_story(), _session(3), author_name="김토스")
+    reader = PdfReader(io.BytesIO(data))
+    text = "".join("".join((p.extract_text() or "").split()) for p in reader.pages)
+
+    assert "그림페이지" not in text
+
+
 @pytest.mark.pdf
 async def test_pdf_contains_original_story_intro():
     """(d) 원작 앞부분이 PDF 안에 실제로 찍혀야 '완전본'이다(감사 A-6)."""
