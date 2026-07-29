@@ -173,6 +173,16 @@ async def test_pdf_is_a4_landscape_with_expected_sheet_count():
         assert height == pytest.approx(210 * MM_TO_PT, abs=1.0)
 
 
+def test_drawing_area_border_survives_print():
+    """그림칸 테두리는 인쇄에도 남아야 한다 — 한 번 제거했다가 피드백으로 되돌린 항목이다."""
+    html = pdf_service.render_book_html(_story(), _session(3))
+    print_block = html.split("@media print")[1]
+
+    assert "border: 2px solid" in html
+    # 인쇄 블록이 테두리를 다시 지우면 실물에서 그릴 자리가 사라진다.
+    assert "border: none" not in print_block.split(".drawing-area")[1].split("}")[0]
+
+
 def test_blank_pages_carry_no_label():
     """남는 면은 문구 없이 비운다 — 지면 전체를 아이 그림에 내주기로 했다.
 

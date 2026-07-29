@@ -277,8 +277,14 @@
         .receipt-section-title { font-weight: bold; margin-bottom: 8px; }
         .receipt-keywords { font-size: 13px; color: var(--accent-red); margin-bottom: 16px; font-family: 'Pretendard Variable', sans-serif; font-weight: 600; }
         .receipt-books { font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px; }
-        .receipt-book-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .receipt-book-code { background-color: #EEE; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+        .receipt-book-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        /* flex 아이템의 기본 min-width 는 auto 라 긴 제목이 줄지 않고 청구기호를 밀어내 잘렸다.
+           청구기호는 서가에서 책을 찾는 유일한 단서이므로 제목을 줄이고 기호를 온전히 남긴다. */
+        .receipt-book-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .receipt-book-code {
+            flex: 0 0 auto; background-color: #EEE; padding: 2px 6px;
+            border-radius: 4px; white-space: nowrap;
+        }
         .barcode { text-align: center; font-size: 24px; letter-spacing: 2px; margin-top: 20px; font-weight: normal; color: #555; }
 
         /* 도서관 책 위치 뽑기 버튼 */

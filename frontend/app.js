@@ -954,14 +954,17 @@ function renderReceiptBooks(books) {
         row.className = 'receipt-book-row';
 
         const name = document.createElement('span');
+        name.className = 'receipt-book-title';
         name.textContent = (idx + 1) + '. ' + (book.title || '');
-
-        const code = document.createElement('strong');
-        code.className = 'receipt-book-code';
-        code.textContent = book.call_number || '';
-
         row.appendChild(name);
-        row.appendChild(code);
+
+        // 청구기호가 없는 응답도 있다(정보나루 class_no 결측). 빈 회색 조각이 남지 않게 건너뛴다.
+        if (book.call_number) {
+            const code = document.createElement('strong');
+            code.className = 'receipt-book-code';
+            code.textContent = book.call_number;
+            row.appendChild(code);
+        }
         el.receiptBooks.appendChild(row);
     });
 }

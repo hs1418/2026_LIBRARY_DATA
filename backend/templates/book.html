@@ -131,10 +131,11 @@
   .content-page { justify-content: space-between; }
 
   .drawing-area-wrap { flex: 1; margin-bottom: 15mm; display: flex; flex-direction: column; }
+  /* 그림칸은 아이가 어디에 그릴지 한눈에 알 수 있게 진한 실선 네모로 둔다.
+     인쇄에서도 그대로 나가야 하므로 @media print 에서 지우지 않는다. */
   .drawing-area {
     flex: 1;
-    border: 2px dashed #C8D1CE;
-    border-radius: 8px;
+    border: 2px solid #3A4A46;
     background-color: #FAFAFA;
   }
   .drawing-text { color: #9CA8A3; font-size: 12px; font-weight: 500; text-align: right; margin-top: 6px; }
@@ -153,8 +154,8 @@
     .a4-sheet { box-shadow: none; border: none; }
     .fold-line { border-left: 1px dashed #EEE; }
     .drawing-text { display: none; }
-    /* 인쇄 시 그림칸 테두리 제거 — 아이가 지면 전체에 자유롭게 그리도록 (디자인팀 결정) */
-    .drawing-area { border: none; background-color: transparent; }
+    /* 그림칸 테두리는 인쇄에도 남긴다 — 그릴 자리가 보이지 않는다는 피드백으로 번복. */
+    .drawing-area { background-color: transparent; }
   }
 </style>
 </head>
